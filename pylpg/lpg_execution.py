@@ -126,7 +126,7 @@ def execute_lpg_single_household(
     travel_route_set: JsonReference = None,
     random_seed: int = None,
     energy_intensity: EnergyIntensityType = EnergyIntensityType.Random,
-    resolution: str = "00:01:00",
+    resolution: str = "00:05:00",
     calc_options: List[CalcOption] = None,
 ) -> pd.DataFrame:
     lpe: LPGExecutor = LPGExecutor(1, False)
@@ -251,7 +251,12 @@ def execute_lpg_with_many_householdata(
     calculation_index: int = 1,
     clear_previous_calc: bool = False,
     random_seed: int = None,
+    resolution: str = None,
+    # resolution_int: str = "00:01:00",
     energy_intensity: EnergyIntensityType = EnergyIntensityType.Random,
+    building_id: str = None
+
+
 ):
     try:
         print(
@@ -264,7 +269,7 @@ def execute_lpg_with_many_householdata(
         lpe: LPGExecutor = LPGExecutor(calculation_index, clear_previous_calc)
 
         # basic request
-        request = lpe.make_default_lpg_settings(year)
+        request = lpe.make_default_lpg_settings(year, building_id, resolution)
         assert request.House is not None, "Housedata was None"
         request.House.HouseTypeCode = housetype
         if random_seed is not None and request.CalcSpec is not None:
@@ -281,6 +286,8 @@ def execute_lpg_with_many_householdata(
         if enddate is not None:
             request.CalcSpec.set_EndDate(enddate)
         request.CalcSpec.EnergyIntensityType = energy_intensity
+        # request.CalcSpec.ExternalTimeResolution = resolution
+        # request.CalcSpec.InternalTimeResolution = resolution_int
         calcspecfilename = Path(lpe.calculation_directory, "calcspec.json")
         if simulate_transportation:
             request.CalcSpec.EnableTransportation = True
@@ -506,7 +513,7 @@ class LPGExecutor:
             cwd=str(self.calculation_directory),
         )
 
-    def make_default_lpg_settings(self, year: int) -> HouseCreationAndCalculationJob:
+    def make_default_lpg_settings(self, year: int, building_id, resolution) -> HouseCreationAndCalculationJob:
         print("Creating")
         hj = HouseCreationAndCalculationJob()
         hj.set_Scenario("S1").set_Year(str(year)).set_DistrictName("district")
@@ -525,13 +532,18 @@ class LPGExecutor:
         hj.CalcSpec = cs
         cs.IgnorePreviousActivitiesWhenNeeded = True
         cs.LoadTypePriority = LoadTypePriority.All
-        cs.DefaultForOutputFiles = OutputFileDefault.NoFiles
+        cs.DefaultForOutputFiles = OutputFileDefault.All
+        cs.ExternalTimeResolution = resolution
+        cs.InternalTimeResolution = str("00:01:00")
         cs.CalcOptions = [
             CalcOption.JsonHouseholdSumFiles,
             CalcOption.BodilyActivityStatistics,
+            CalcOption.OverallSum,
+            CalcOption.TimeOfUsePlot,
+            CalcOption.ActionCarpetPlot
         ]
-        cs.EnergyIntensityType = EnergyIntensityType.Random
-        cs.OutputDirectory = "results"
+        cs.EnergyIntensityType = EnergyIntensityType.EnergySaving
+        cs.OutputDirectory = r"C:\03_Repos\pylpg\Data\Results\Results_" + building_id
         hj.PathToDatabase = str(
             Path(self.calculation_directory, "profilegenerator.db3")
         )
@@ -539,7 +551,8 @@ class LPGExecutor:
 
     def read_all_json_results_in_directory(self) -> Optional[pd.DataFrame]:
         df: pd.DataFrame = pd.DataFrame()
-        results_directory = Path(self.calculation_directory, "results", "Results")
+        # directory = "C:\03_Repos\pylpg\Data\Results"
+        results_directory = Path(self.calculation_directory,  "Results")
         if not os.path.exists(str(results_directory)):
             return None
         potential_sum_files = glob.glob(str(results_directory) + "/Sum.*.json")
