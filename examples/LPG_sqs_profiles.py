@@ -22,8 +22,8 @@ csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit1.csv"  # Ersetzen
 household_data = LPG_sekquasens_coupling(csv_filename_persons)
 
 # Simulationsparameter
-startdate = "01.01.2020"  # Wichtig: MM.TT.JJJJ
-enddate = "01.03.2020"
+startdate = "01.01.2024"  # Wichtig: MM.TT.JJJJ
+enddate = "01.02.2024"
 
 # Führen Sie die Simulation für jedes Gebäude durch
 
@@ -34,7 +34,6 @@ for building_id, households in household_data.items():
     for hh_data in households.values():
         # Fügen Sie den Haushalt zur all_households-Liste hinzu
         all_households.append(hh_data)
-
     print(all_households)
 
     # Führen Sie lpg_execution.execute_lpg_with_many_householdata für das aktuelle Gebäude durch

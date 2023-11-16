@@ -25,28 +25,24 @@ def read_csv_and_assign_living_pattern_tags(csv_filename_persons):
     tag_mapping = {
         "1": LivingPatternTags.Living_Pattern_Kindergarden,
         "2": LivingPatternTags.Living_Pattern_School,
-        "3": random.choice([  # Zufall eventuell entfernen
-            LivingPatternTags.Living_Pattern_University,
-            LivingPatternTags.Living_Pattern_University_Student_Independent
-        ]),
+        "3": LivingPatternTags.Living_Pattern_University_Student_Independent, # eventuell nach dem String: Student suchen statt dem Pattern
         "4": LivingPatternTags.Living_Pattern_Retiree,
-        "5": LivingPatternTags.Living_Pattern_All,
+        "5": LivingPatternTags.Living_Pattern_Stay_at_Home_Regular,  #
         "6": LivingPatternTags.Living_Pattern_Office_Job_Medium_7_9am,
-
-        """""        
-        "6": random.choice([  # Zufall eventuell entfernen
-            LivingPatternTags.Living_Pattern_Office_Job,
-            LivingPatternTags.Living_Pattern_Office_Job_Early_5_7am,
-            LivingPatternTags.Living_Pattern_Office_Job_Late_9_11am,
-            LivingPatternTags.Living_Pattern_Office_Job_Medium_7_9am,
-            LivingPatternTags.Living_Pattern_Office_Worker
-        ]),
-        """
-
         "7": LivingPatternTags.Living_Pattern_Part_Time_Job,
         "8": LivingPatternTags.Living_Pattern_Shift_work_3_Shifts_A,
         "9": LivingPatternTags.Living_Pattern_Stay_at_Home,
     }
+
+    """""        
+    "6": random.choice([  # Zufall eventuell entfernen
+        LivingPatternTags.Living_Pattern_Office_Job,
+        LivingPatternTags.Living_Pattern_Office_Job_Early_5_7am,
+        LivingPatternTags.Living_Pattern_Office_Job_Late_9_11am,
+        LivingPatternTags.Living_Pattern_Office_Job_Medium_7_9am,
+        LivingPatternTags.Living_Pattern_Office_Worker
+    ]),
+    """
 
     # Funktion zur Konvertierung des Alters von Intervallen in Werte
     def convert_age(age):
@@ -78,9 +74,6 @@ def read_csv_and_assign_living_pattern_tags(csv_filename_persons):
 
     with open(csv_filename_persons, 'r', newline='', encoding='utf-8') as csvfile:
         data = csv.DictReader(csvfile, delimiter=';')
-        # next(reader)  # Überspringe Header-Zeile
-        # data = list(reader)
-        # print(data)
 
         for row in data:
 
@@ -217,7 +210,7 @@ def find_pattern(csv_filename_persons):
     result = list(grouped_household_data.values())
     # Zeige das Ergebnis
     # for entry in result:
-    # print(entry)
+        # print(entry)
 
     best_pattern = []
     all_best_pattern = []
@@ -237,13 +230,14 @@ def find_pattern(csv_filename_persons):
             elif age >= 65:
                 num_seniors += 1
 
-        if num_persons > 6:
+        if num_persons > 5:
             # Wenn mehr als 6 Personen im Haushalt sind, verwende das spezifische Template
             best_pattern = {
                 'Gebaeude_ID': household['Gebaeude_ID'],
                 'Haushalt_ID': household['Haushalt_ID'],
                 'Template Name': 'CHR15 Multigenerational Home: working_couple, 2 children, 2 seniors'
             }
+            # print("Template for:", household['Haushalt_ID'], ", Persons:", household['Personen'], "\n", best_pattern,"\n")
             all_best_pattern.append(best_pattern)
         else:
             # Finde die für diese Anzahl von Personen passenden Templates aus household_sizes
@@ -251,10 +245,8 @@ def find_pattern(csv_filename_persons):
             if not eligible_templates:
                 continue
                 # eligible_templates = {template: size for template, size in household_sizes.items()}  # Keine passenden Templates gefunden
-            # print(eligible_templates)
 
             # Initialisiere Variablen, um die beste Übereinstimmung zu verfolgen
-            # Eine leere Liste, um passende Vorlagen zu speichern
             template_data = []
             for template_name, template in TemplatePersons.__dict__.items():
                 if (
@@ -283,11 +275,9 @@ def find_pattern(csv_filename_persons):
                         }
                         template_data.append(new_template)
 
-            # print(template_data)
             best_matches = []
             num_children = sum(person['Alter'] < 18 for person in household['Personen'])
             num_seniors = sum(person['Alter'] > 64 for person in household['Personen'])
-            # print(num_children, num_seniors)
             best_match = None
             for entry in template_data:
                 template_num_children = sum(age < 18 for age in entry['ages'])
@@ -298,18 +288,13 @@ def find_pattern(csv_filename_persons):
                         and num_seniors == template_num_seniors
                 ):
                     best_match = entry
-                    # print(best_match)
-
-                    # if best_match not in best_matches:
                     best_matches.append(best_match)
 
             if not best_matches:
                 # Wenn keine passenden Templates nach Altersanforderungen gefunden wurden, wähle alle verfügbaren
                 best_matches = template_data
 
-            # print(best_matches)
             best_pattern_scores = [(entry, 0) for entry in best_matches]
-
             for person_info in household['Personen']:
                 for i, (entry, score) in enumerate(best_pattern_scores):
                     if person_info['Tag'] in entry['patterns']:
@@ -317,8 +302,15 @@ def find_pattern(csv_filename_persons):
 
             # Finde das Template mit der höchsten Punktzahl
             max_score = max(score for (_, score) in best_pattern_scores)
-            best_pattern = [entry for entry, score in best_pattern_scores if score == max_score]
-            best_pattern_name = best_pattern[0]['Template Name']
+            best_patterns = [entry for entry, score in best_pattern_scores if score == max_score]
+
+            if len(best_patterns) > 1:
+                best_pattern = random.choice(best_patterns)
+            else:
+                best_pattern = best_patterns[0]
+
+            # print("Template for:", household['Haushalt_ID'], ", Persons:",household['Personen'],"\n", best_pattern,"\n")
+            best_pattern_name = best_pattern['Template Name']
             best_pattern = {
                 'Gebaeude_ID': household['Gebaeude_ID'],
                 'Haushalt_ID': household['Haushalt_ID'],
@@ -336,16 +328,22 @@ def find_pattern(csv_filename_persons):
                 }
             all_best_pattern.append(best_pattern)
 
-    #print(all_best_pattern)
     return all_best_pattern, household_data
 
+def print_building_statistics(building_data):
+    for building_id, households in sorted(building_data.items()):
+        num_households = len(households)
+        num_persons = sum(len(data["PersonData"]) for data in households.values())
+
+        print(f"Gebäude ID: {building_id}")
+        print(f"Anzahl der Haushalte: {num_households}")
+        print(f"Anzahl der Personen: {num_persons}")
+        print("-" * 30)
+
 def LPG_sekquasens_coupling(csv_filename_persons):
-    # tagged_data = read_csv_and_assign_living_pattern_tags(csv_filename_persons)
     best_pattern, tagged_data = find_pattern(csv_filename_persons)
 
-
     building_data = {}
-
     # Iterieren durch die `tagged_data` und fülle die Datenstruktur auf
     for data_point in tagged_data:
         building_id = data_point["Gebaeude_ID"]
@@ -364,7 +362,6 @@ def LPG_sekquasens_coupling(csv_filename_persons):
         building_data[building_id][household_id]["PersonData"].append(person_data)
 
     # Iteriere durch jeden Haushalt in `best_pattern` und füge das Template hinzu
-    # print(best_pattern)
     for entry in best_pattern:
         building_id = entry["Gebaeude_ID"]
         household_id = entry["Haushalt_ID"]
@@ -374,9 +371,7 @@ def LPG_sekquasens_coupling(csv_filename_persons):
         if building_id in building_data and household_id in building_data[building_id]:
             # Fügen Sie das Template zum Haushalt hinzu
             building_data[building_id][household_id]["Template Name"] = template_name
-
-    # print(building_data)
-
+    # print_building_statistics(building_data)
 
     household_data = {}
     for building_id, households in building_data.items():
@@ -396,7 +391,8 @@ def LPG_sekquasens_coupling(csv_filename_persons):
 
     return household_data
 
-#csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit1.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
-#household_data = LPG_sekquasens_coupling(csv_filename_persons)
-#print(household_data)
+csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
+household_data = LPG_sekquasens_coupling(csv_filename_persons)
+
+
 

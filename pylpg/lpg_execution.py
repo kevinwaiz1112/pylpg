@@ -540,7 +540,11 @@ class LPGExecutor:
             CalcOption.BodilyActivityStatistics,
             CalcOption.OverallSum,
             CalcOption.TimeOfUsePlot,
-            CalcOption.ActionCarpetPlot
+            CalcOption.ActionCarpetPlot,
+            CalcOption.PersonStatus,
+            CalcOption.MakePDF,
+            CalcOption.MakeGraphics,
+
         ]
         cs.EnergyIntensityType = EnergyIntensityType.EnergySaving
         cs.OutputDirectory = r"C:\03_Repos\pylpg\Data\Results\Results_" + building_id
