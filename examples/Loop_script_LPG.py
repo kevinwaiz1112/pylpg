@@ -39,6 +39,7 @@ for building_id, households in household_data.items():
     print(all_households)
 
     output_folder = r"C:\03_Repos\pylpg\Data\Results\Results_" + building_id
+    calc_folder = r"C:\03_Repos\pylpg\pylpg"
     # Führen Sie lpg_execution.execute_lpg_with_many_householdata für das aktuelle Gebäude durch
     df = lpg_execution.execute_lpg_with_many_householdata(
         year=2020,
@@ -51,7 +52,8 @@ for building_id, households in household_data.items():
         # resolution_int="00:01:00",
         random_seed=2,
         building_id=building_id,
-        output_folder=output_folder
+        output_folder=output_folder,
+        calc_folder=calc_folder
     )
 
     # Hier können Sie mit dem DataFrame `df` arbeiten, z.B., es in eine CSV-Datei exportieren.

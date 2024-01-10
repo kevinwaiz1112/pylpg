@@ -255,7 +255,8 @@ def execute_lpg_with_many_householdata(
     # resolution_int: str = "00:01:00",
     energy_intensity: EnergyIntensityType = EnergyIntensityType.Random,
     building_id: str = None,
-    output_folder: str = None
+    output_folder: str = None,
+    calc_folder: str = None
 
 
 ):
@@ -267,7 +268,7 @@ def execute_lpg_with_many_householdata(
             + str(len(householddata))
             + " households"
         )
-        lpe: LPGExecutor = LPGExecutor(calculation_index, clear_previous_calc, output_folder)
+        lpe: LPGExecutor = LPGExecutor(calculation_index, clear_previous_calc, calc_folder, building_id)
 
         # basic request
         request = lpe.make_default_lpg_settings(year, building_id, resolution, output_folder)
@@ -287,8 +288,6 @@ def execute_lpg_with_many_householdata(
         if enddate is not None:
             request.CalcSpec.set_EndDate(enddate)
         request.CalcSpec.EnergyIntensityType = energy_intensity
-        # request.CalcSpec.ExternalTimeResolution = resolution
-        # request.CalcSpec.InternalTimeResolution = resolution_int
         calcspecfilename = Path(lpe.calculation_directory, "calcspec.json")
         if simulate_transportation:
             request.CalcSpec.EnableTransportation = True
@@ -301,8 +300,8 @@ def execute_lpg_with_many_householdata(
         df = lpe.read_all_json_results_in_directory()
 
         # Nach der Ausführung der Simulation, lösche das Berechnungsverzeichnis
-        if os.path.exists(lpe.calculation_directory):
-            shutil.rmtree(lpe.calculation_directory)
+        #if os.path.exists(lpe.calculation_directory):
+         #   shutil.rmtree(lpe.calculation_directory)
 
         return df
     except OSError as why:
@@ -428,50 +427,63 @@ class LPGExecutor:
         :param path: The path where the LPG binaries will be installed
         :type path: Path
         """
-        # determine correct link and destination folder depending on the platform
-        if sys.platform == "linux" or sys.platform == "linux2":
-            # url = "https://www.loadprofilegenerator.de/setup/LPG10.7.0_linux.zip"
-            url = "https://github.com/FZJ-IEK3-VSA/LoadProfileGenerator/releases/download/v10.8.0/LoadProfileGenerator-v10.8.0-linux.zip"
-            folder_name = "LPG_linux"
-        elif sys.platform == "win32":
-            # url = "https://www.loadprofilegenerator.de/setup/LPG10.7.0.zip"
-            url = "https://github.com/FZJ-IEK3-VSA/LoadProfileGenerator/releases/download/v10.8.0/LoadProfileGenerator-v10.8.0.zip"
-            folder_name = "LPG_win"
-        else:
-            raise Exception("Operating system not supported: " + platform)
+        """
+                Checks if the LoadProfileGenerator binaries are already downloaded.
+                If not, downloads them to a base folder (LPG_win or LPG_linux).
+                """
+        base_folder_name = "LPG_win" if sys.platform == "win32" else "LPG_linux"
+        base_folder_path = path / base_folder_name
 
-        print("Downloading LPG binaries from " + url)
+        if not base_folder_path.exists():
 
-        try:
-            # download the LPG binaries from LoadProfileGenerator.de
-            response = requests.get(url)
-            # store the zipped result in a temporary buffer and extract it
-            zipped_result = zipfile.ZipFile(io.BytesIO(response.content))
-            destination_folder = os.path.join(path, folder_name)
-            zipped_result.extractall(destination_folder)
-        except:
-            raise Exception(f"Could not install the LoadProfileGenerator binaries.")
+            # determine correct link and destination folder depending on the platform
+            if sys.platform == "linux" or sys.platform == "linux2":
+                # url = "https://www.loadprofilegenerator.de/setup/LPG10.7.0_linux.zip"
+                url = "https://github.com/FZJ-IEK3-VSA/LoadProfileGenerator/releases/download/v10.8.0/LoadProfileGenerator-v10.8.0-linux.zip"
+                #folder_name = "LPG_linux" + str(building_id)
+            elif sys.platform == "win32":
+                # url = "https://www.loadprofilegenerator.de/setup/LPG10.7.0.zip"
+                url = "https://github.com/FZJ-IEK3-VSA/LoadProfileGenerator/releases/download/v10.8.0/LoadProfileGenerator-v10.8.0.zip"
+                #folder_name = "LPG_win_"+ str(building_id)
+            else:
+                raise Exception("Operating system not supported: " + platform)
 
-        if sys.platform == "linux":
-            # on linux, make the file executable
-            fullname = os.path.join(destination_folder, "simengine2")
-            os.chmod(str(fullname), stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-            print(
-                "Permissions set for simengine2:"
-                + str(oct(os.stat(str(fullname))[stat.ST_MODE])[-3:])
-            )
+            print("Downloading LPG binaries from " + url)
 
-    def __init__(self, calcidx: int, clear_previous_calc: bool, output_folder):
-        #self.output_folder = output_folder
-        #self.calculation_directory = Path(output_folder, "C" + str(calcidx))
-        #self.working_directory = Path(output_folder)
-        self.working_directory = pathlib.Path(__file__).parent.absolute()
+            try:
+                # download the LPG binaries from LoadProfileGenerator.de
+                response = requests.get(url)
+                # store the zipped result in a temporary buffer and extract it
+                zipped_result = zipfile.ZipFile(io.BytesIO(response.content))
+                destination_folder = os.path.join(path, base_folder_name)
+                zipped_result.extractall(destination_folder)
+            except:
+                raise Exception(f"Could not install the LoadProfileGenerator binaries.")
+
+            if sys.platform == "linux":
+                # on linux, make the file executable
+                fullname = base_folder_path / "simengine2"
+                # fullname = os.path.join(destination_folder, "simengine2")
+                os.chmod(str(fullname), stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                print(
+                    "Permissions set for simengine2:"
+                    + str(oct(os.stat(str(fullname))[stat.ST_MODE])[-3:])
+                )
+
+        return base_folder_name
+
+    """
+    def __init__(self, calcidx: int, clear_previous_calc: bool, calc_folder, building_id):
+        self.calc_folder = calc_folder
+        self.calculation_directory = Path(calc_folder, "C" + str(calcidx) + "_" + str(building_id))
+        self.working_directory = Path(calc_folder)
+        #self.working_directory = pathlib.Path(__file__).parent.absolute()
         # get LPG binary directory and executable name depending on platform
         if sys.platform == "linux" or sys.platform == "linux2":
-            self.calculation_src_directory = Path(self.working_directory, "LPG_linux")
+            self.calculation_src_directory = Path(self.working_directory, "LPG_linux" + str(building_id))
             self.simengine_src_filename = "simengine2"
         elif sys.platform == "win32":
-            self.calculation_src_directory = Path(self.working_directory, "LPG_win")
+            self.calculation_src_directory = Path(self.working_directory, "LPG_win_" + str(building_id))
             self.simengine_src_filename = "simulationengine.exe"
         else:
             raise Exception("unknown operating system detected: " + platform)
@@ -480,10 +492,11 @@ class LPGExecutor:
         if not os.path.isfile(
             os.path.join(self.calculation_src_directory, self.simengine_src_filename)
         ):
-            LPGExecutor.retrieve_lpg_binaries(self.working_directory)
+            LPGExecutor.retrieve_lpg_binaries(self.working_directory, building_id)
 
-        self.calculation_directory = Path(self.working_directory, "C" + str(calcidx))
+        self.calculation_directory = Path(self.working_directory, "C" + str(calcidx) + "_" + str(building_id))
         print("Working in directory: " + str(self.calculation_directory))
+
         if clear_previous_calc and os.path.exists(self.calculation_directory):
             self.error_tolerating_directory_clean(self.calculation_directory)
             print("Removing " + str(self.calculation_directory))
@@ -498,6 +511,34 @@ class LPGExecutor:
             )
             shutil.copytree(self.calculation_src_directory, self.calculation_directory)
             print("copied to: " + str(self.calculation_directory))
+            
+    """
+
+    def __init__(self, calcidx: int, clear_previous_calc: bool, calc_folder, building_id):
+        self.calc_folder = calc_folder
+        self.calculation_directory = Path(calc_folder, "C" + str(calcidx) + "_" + str(building_id))
+        self.working_directory = Path(calc_folder)
+
+        base_folder_name = LPGExecutor.retrieve_lpg_binaries(self.working_directory)
+
+        # Erstelle eine Kopie des Basisordners für das spezifische Gebäude
+        self.calculation_src_directory = self.working_directory / f"{base_folder_name}_{building_id}"
+        if not self.calculation_src_directory.exists():
+            shutil.copytree(self.working_directory / base_folder_name, self.calculation_src_directory)
+
+        self.simengine_src_filename = "simulationengine.exe" if sys.platform == "win32" else "simengine2"
+
+        if clear_previous_calc and self.calculation_directory.exists():
+            self.error_tolerating_directory_clean(self.calculation_directory)
+            print("Removing " + str(self.calculation_directory))
+            shutil.rmtree(self.calculation_directory)
+            time.sleep(1)
+
+        if not self.calculation_directory.exists():
+            print("Copying from " + str(self.calculation_src_directory) + " to " + str(self.calculation_directory))
+            shutil.copytree(self.calculation_src_directory, self.calculation_directory)
+            print("Copied to: " + str(self.calculation_directory))
+
 
     def error_tolerating_directory_clean(self, path: Union[Path, str]):
         mypath = str(path)

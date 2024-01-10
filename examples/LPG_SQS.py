@@ -26,6 +26,7 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
 
     # Aktualisiere den Ausgabeordner für dieses Gebäude
     output_folder = os.path.join(output_folder, f"Results_{building_id}")
+    calc_folder = r"C:\03_Repos\pylpg\pylpg"
 
     # Führen Sie lpg_execution.execute_lpg_with_many_householdata für das aktuelle Gebäude durch
     df = lpg_execution.execute_lpg_with_many_householdata(
@@ -38,7 +39,8 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
         resolution="01:00:00",
         random_seed=2,
         building_id=building_id,
-        output_folder = output_folder
+        output_folder=output_folder,
+        calc_folder=calc_folder
     )
 
     # Hier können Sie mit dem DataFrame `df` arbeiten, z.B., es in eine CSV-Datei exportieren.
@@ -58,6 +60,16 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
     if os.path.exists(folder_to_delete):
         shutil.rmtree(folder_to_delete)
 
+    # Löschen des Ordners "C1_ID" (falls vorhanden)
+    folder_to_delete = os.path.join(calc_folder, "C" + "1_" + str(building_id))
+    if os.path.exists(folder_to_delete):
+        shutil.rmtree(folder_to_delete)
+
+    # Löschen des Ordners "LPG_win_ID" (falls vorhanden)
+    folder_to_delete = os.path.join(calc_folder, "LPG_win_"+ str(building_id))
+    if os.path.exists(folder_to_delete):
+        shutil.rmtree(folder_to_delete)
+
 
 if __name__ == "__main__":
     csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit_8Buildings.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
@@ -65,7 +77,7 @@ if __name__ == "__main__":
 
     # Simulationsparameter
     startdate = "01.01.2024"  # Wichtig: MM.TT.JJJJ
-    enddate = "01.01.2024"
+    enddate = "01.07.2024"
     start_time = time.time()
 
     # Erstelle eine Liste von Argumenten für die Gebäudesimulationen
@@ -73,7 +85,7 @@ if __name__ == "__main__":
                                  household_data.items()]
 
     # Erstelle einen Pool von Prozessen, um die Simulationen parallel auszuführen
-    num_processes = 2  # Anzahl der parallel auszuführenden Prozesse
+    num_processes = 8  # Anzahl der parallel auszuführenden Prozesse
     pool = multiprocessing.Pool(processes=num_processes)
 
     # Führe die Simulationen parallel aus
