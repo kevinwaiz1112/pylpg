@@ -1,15 +1,11 @@
 from pylpg import lpg_execution, lpgdata, lpgpythonbindings
 from pylpg.lpgdata import *
 from pylpg.lpgpythonbindings import *
-import utils
-import random
-import pandas
-import visualizer
 import multiprocessing
 import time
 import shutil
 import os
-from Mapping_pattern_tags import *
+from mapping_pattern_tags import *
 
 """""
 Filtert die Templates auf Basis der angegebenen Anzahl an Personen und dem Gender und wählt auf dieser Basis das Template aus.
@@ -77,7 +73,7 @@ if __name__ == "__main__":
 
     # Simulationsparameter
     startdate = "01.01.2024"  # Wichtig: MM.TT.JJJJ
-    enddate = "01.07.2024"
+    enddate = "01.01.2024"
     start_time = time.time()
 
     # Erstelle eine Liste von Argumenten für die Gebäudesimulationen

@@ -4,7 +4,6 @@ import statistics
 from pylpg.lpgdata import *
 from pylpg.lpgpythonbindings import *
 from collections import defaultdict
-import utils
 import random
 
 # Lese die CSV-Datei ein
