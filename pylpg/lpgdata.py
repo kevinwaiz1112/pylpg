@@ -852,7 +852,9 @@ class HouseholdTemplates:
     CHR61_Family_1_child_both_at_work_early_living_pattern = (
         "CHR61 Family, 1 child, both at work, early living pattern"
     )
-    CHR62_Couple_both_Working_from_Home = "CHR62 Couple both Working from Home"
+    CHR62_Couple_both_Working_from_Home = (
+        "CHR62 Couple both Working from Home"
+    )
     CHS01_Couple_with_2_Children_Dad_Employed = (
         "CHS01 Couple with 2 Children, Dad Employed"
     )

@@ -5,6 +5,7 @@ import utils
 import random
 import pandas
 import visualizer
+import multiprocessing
 import time
 import shutil
 import os
@@ -19,26 +20,13 @@ self.LivingPatternTag = value ; analog zu Alter und Gender für PersonData
 
 """""
 
-csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit_OneBuilding.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
-household_data = LPG_sekquasens_coupling(csv_filename_persons)
 
-# Simulationsparameter
-startdate = "01.01.2024"  # Wichtig: MM.TT.JJJJ
-enddate = "01.01.2024"
-start_time = time.time()
+def simulate_building(building_id, households, startdate, enddate, output_folder):
+    all_households = list(households.values())
 
-# Führen Sie die Simulation für jedes Gebäude durch
+    # Aktualisiere den Ausgabeordner für dieses Gebäude
+    output_folder = os.path.join(output_folder, f"Results_{building_id}")
 
-for building_id, households in household_data.items():
-    # Initialisieren eine leere Liste für die Haushalte des aktuellen Gebäudes
-    all_households = []
-
-    for hh_data in households.values():
-        # Fügen Sie den Haushalt zur all_households-Liste hinzu
-        all_households.append(hh_data)
-    print(all_households)
-
-    output_folder = r"C:\03_Repos\pylpg\Data\Results\Results_" + building_id
     # Führen Sie lpg_execution.execute_lpg_with_many_householdata für das aktuelle Gebäude durch
     df = lpg_execution.execute_lpg_with_many_householdata(
         year=2020,
@@ -48,10 +36,9 @@ for building_id, households in household_data.items():
         enddate=enddate,
         simulate_transportation=False,
         resolution="01:00:00",
-        # resolution_int="00:01:00",
         random_seed=2,
         building_id=building_id,
-        output_folder=output_folder
+        output_folder = output_folder
     )
 
     # Hier können Sie mit dem DataFrame `df` arbeiten, z.B., es in eine CSV-Datei exportieren.
@@ -70,8 +57,32 @@ for building_id, households in household_data.items():
     folder_to_delete = os.path.join(output_folder, "Temporary Files")
     if os.path.exists(folder_to_delete):
         shutil.rmtree(folder_to_delete)
-    
 
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"Das Skript hat {execution_time} Sekunden gedauert.")
+
+if __name__ == "__main__":
+    csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit_8Buildings.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
+    household_data = LPG_sekquasens_coupling(csv_filename_persons)
+
+    # Simulationsparameter
+    startdate = "01.01.2024"  # Wichtig: MM.TT.JJJJ
+    enddate = "01.01.2024"
+    start_time = time.time()
+
+    # Erstelle eine Liste von Argumenten für die Gebäudesimulationen
+    building_simulations_args = [(building_id, households, startdate, enddate, r"C:\03_Repos\pylpg\Data\Results") for building_id, households in
+                                 household_data.items()]
+
+    # Erstelle einen Pool von Prozessen, um die Simulationen parallel auszuführen
+    num_processes = 2  # Anzahl der parallel auszuführenden Prozesse
+    pool = multiprocessing.Pool(processes=num_processes)
+
+    # Führe die Simulationen parallel aus
+    pool.starmap(simulate_building, building_simulations_args)
+
+    # Beende den Pool und warte auf das Ende aller Prozesse
+    pool.close()
+    pool.join()
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print(f"Das Skript hat {execution_time} Sekunden gedauert.")

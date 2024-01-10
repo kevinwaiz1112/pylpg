@@ -254,7 +254,8 @@ def execute_lpg_with_many_householdata(
     resolution: str = None,
     # resolution_int: str = "00:01:00",
     energy_intensity: EnergyIntensityType = EnergyIntensityType.Random,
-    building_id: str = None
+    building_id: str = None,
+    output_folder: str = None
 
 
 ):
@@ -266,10 +267,10 @@ def execute_lpg_with_many_householdata(
             + str(len(householddata))
             + " households"
         )
-        lpe: LPGExecutor = LPGExecutor(calculation_index, clear_previous_calc)
+        lpe: LPGExecutor = LPGExecutor(calculation_index, clear_previous_calc, output_folder)
 
         # basic request
-        request = lpe.make_default_lpg_settings(year, building_id, resolution)
+        request = lpe.make_default_lpg_settings(year, building_id, resolution, output_folder)
         assert request.House is not None, "Housedata was None"
         request.House.HouseTypeCode = housetype
         if random_seed is not None and request.CalcSpec is not None:
@@ -298,6 +299,10 @@ def execute_lpg_with_many_householdata(
         lpe.execute_lpg_binaries()
 
         df = lpe.read_all_json_results_in_directory()
+
+        # Nach der Ausführung der Simulation, lösche das Berechnungsverzeichnis
+        if os.path.exists(lpe.calculation_directory):
+            shutil.rmtree(lpe.calculation_directory)
 
         return df
     except OSError as why:
@@ -456,7 +461,10 @@ class LPGExecutor:
                 + str(oct(os.stat(str(fullname))[stat.ST_MODE])[-3:])
             )
 
-    def __init__(self, calcidx: int, clear_previous_calc: bool):
+    def __init__(self, calcidx: int, clear_previous_calc: bool, output_folder):
+        #self.output_folder = output_folder
+        #self.calculation_directory = Path(output_folder, "C" + str(calcidx))
+        #self.working_directory = Path(output_folder)
         self.working_directory = pathlib.Path(__file__).parent.absolute()
         # get LPG binary directory and executable name depending on platform
         if sys.platform == "linux" or sys.platform == "linux2":
@@ -513,7 +521,7 @@ class LPGExecutor:
             cwd=str(self.calculation_directory),
         )
 
-    def make_default_lpg_settings(self, year: int, building_id, resolution) -> HouseCreationAndCalculationJob:
+    def make_default_lpg_settings(self, year: int, building_id, resolution, output_folder) -> HouseCreationAndCalculationJob:
         print("Creating")
         hj = HouseCreationAndCalculationJob()
         hj.set_Scenario("S1").set_Year(str(year)).set_DistrictName("district")
@@ -522,7 +530,7 @@ class LPGExecutor:
         hd.Name = "House"
         hd.HouseGuid = StrGuid("houseguid")
         hd.HouseTypeCode = (
-            HouseTypes.HT01_House_with_a_10kWh_Battery_and_a_fuel_cell_battery_charger_5_MWh_yearly_space_heating_gas_heating
+            HouseTypes.HT22_Big_Multifamily_House_no_heating_cooling
         )
         hd.TargetCoolingDemand = 10000
         hd.TargetHeatDemand = 0
@@ -531,23 +539,17 @@ class LPGExecutor:
         cs: JsonCalcSpecification = JsonCalcSpecification()
         hj.CalcSpec = cs
         cs.IgnorePreviousActivitiesWhenNeeded = True
-        cs.LoadTypePriority = LoadTypePriority.All
-        cs.DefaultForOutputFiles = OutputFileDefault.All
+        cs.LoadTypePriority = LoadTypePriority.RecommendedForHouses
+        cs.DefaultForOutputFiles = OutputFileDefault.NoFiles
         cs.ExternalTimeResolution = resolution
         cs.InternalTimeResolution = str("00:01:00")
         cs.CalcOptions = [
-            CalcOption.JsonHouseholdSumFiles,
-            CalcOption.BodilyActivityStatistics,
-            CalcOption.OverallSum,
-            CalcOption.TimeOfUsePlot,
-            CalcOption.ActionCarpetPlot,
-            CalcOption.PersonStatus,
-            CalcOption.MakePDF,
-            CalcOption.MakeGraphics,
-
+            CalcOption.SumProfileExternalEntireHouse,
+            CalcOption.SumProfileExternalIndividualHouseholds
         ]
         cs.EnergyIntensityType = EnergyIntensityType.EnergySaving
-        cs.OutputDirectory = r"C:\03_Repos\pylpg\Data\Results\Results_" + building_id
+        cs.OutputDirectory = output_folder
+        cs.DeleteSqlite = True
         hj.PathToDatabase = str(
             Path(self.calculation_directory, "profilegenerator.db3")
         )

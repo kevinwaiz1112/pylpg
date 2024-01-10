@@ -130,9 +130,9 @@ household_sizes = {
         "CHR12 Student 2, Male, Philosophy": 1,
         "CHR13 Student with Work": 1,
         "CHR14 3 adults: Couple, 30- 64 years, both at work + Senior at home": 3,
-        "CHR15 Multigenerational Home: working_couple, 2 children, 2 seniors": 6,
+        "CHR15 Multigenerational Home: working couple, 2 children, 2 seniors": 6,
         "CHR16 Couple over 65 years": 2,
-        "CHR17 Shiftworker_Couple": 2,
+        "CHR17 Shiftworker Couple": 2,
         "CHR18 Family, 2 children, parents without work": 4,
         "CHR19 Couple, 30 - 64 years, both at work, with homehelp": 3,
         "CHR20 one at work, one work home, 3 children": 5,
@@ -144,7 +144,7 @@ household_sizes = {
         "CHR26 Single woman under 30 years without work": 1,
         "CHR27 Family both at work, 2 children": 4,
         "CHR28 Single man under 30 years without work": 1,
-        "CHR29 Single man_under_30 years with work": 1,
+        "CHR29 Single man under 30 years with work": 1,
         "CHR30 Single, Retired Man": 1,
         "CHR31 Single, Retired Woman": 1,
         "CHR32 Couple under 30 years without work": 2,
@@ -166,7 +166,7 @@ household_sizes = {
         "CHR48 Family with 2 children, without work": 4,
         "CHR49 Family with 1 child, without work": 3,
         "CHR50 Single woman with 3 children, without work": 4,
-        "CHR51 Coupleover_65 years II": 2,
+        "CHR51 Coupleover 65 years II": 2,
         "CHR52 Student Flatsharing": 3,
         "CHR53 2 Parents, 1 Working, 2 Children": 4,
         "CHR54 Retired Couple, no work": 2,
@@ -177,11 +177,11 @@ household_sizes = {
         "CHR59 Family, 3 children, parents without work": 5,
         "CHR60 Family, 1 toddler, one at work, one at home": 3,
         "CHR61 Family, 1 child, both at work, early living pattern": 3,
-        "CHR62 Couple both Working from Home": 2,
         "CHS01 Couple with 2 Children, Dad Employed": 4,
         "CHS04 Retired Couple, no work": 2,
         "CHS12 Shiftworker Couple": 2,
         "OR01 Single Person Office": 1
+        #"CHR62 Couple both Working from Home": 2
 }
 
 
@@ -235,7 +235,7 @@ def find_pattern(csv_filename_persons):
             best_pattern = {
                 'Gebaeude_ID': household['Gebaeude_ID'],
                 'Haushalt_ID': household['Haushalt_ID'],
-                'Template Name': 'CHR15 Multigenerational Home: working_couple, 2 children, 2 seniors'
+                'Template Name': 'CHR15 Multigenerational Home: working couple, 2 children, 2 seniors'
             }
             # print("Template for:", household['Haushalt_ID'], ", Persons:", household['Personen'], "\n", best_pattern,"\n")
             all_best_pattern.append(best_pattern)
@@ -331,6 +331,10 @@ def find_pattern(csv_filename_persons):
     return all_best_pattern, household_data
 
 def print_building_statistics(building_data):
+    total_buildings = len(building_data)
+    print(f"Gesamtanzahl der Gebäude: {total_buildings}")
+    print("-" * 40)
+
     for building_id, households in sorted(building_data.items()):
         num_households = len(households)
         num_persons = sum(len(data["PersonData"]) for data in households.values())
@@ -371,7 +375,7 @@ def LPG_sekquasens_coupling(csv_filename_persons):
         if building_id in building_data and household_id in building_data[building_id]:
             # Fügen Sie das Template zum Haushalt hinzu
             building_data[building_id][household_id]["Template Name"] = template_name
-    # print_building_statistics(building_data)
+    print_building_statistics(building_data)
 
     household_data = {}
     for building_id, households in building_data.items():
@@ -391,8 +395,8 @@ def LPG_sekquasens_coupling(csv_filename_persons):
 
     return household_data
 
-csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
-household_data = LPG_sekquasens_coupling(csv_filename_persons)
+# csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
+# household_data = LPG_sekquasens_coupling(csv_filename_persons)
 
 
 
