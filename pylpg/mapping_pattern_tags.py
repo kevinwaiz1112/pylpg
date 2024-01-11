@@ -6,7 +6,19 @@ from pylpg.lpgpythonbindings import *
 from collections import defaultdict
 import random
 
-# Lese die CSV-Datei ein
+
+"""""
+Skript zur Filterung und Zuweisung der Daten aus Synthesizer an den LPG:
+
+Die Daten der Personen aus Synthesizer werden benutzt, um daraus Haushalte im LPG zu erstellen, die
+so gut wie möglich denen aus Synthesizer gleichen. Dabei wird das Alter, das Geschlecht und vor allem das LivingPattern 
+der Personen verwendet. Schlussendlich soll die Zuweisung der Haushalte im LPG über die TemplatenNames/HouseholdNames erfolgen
+
+    ByPersons = "ByPersons"
+    ByTemplateName = "ByTemplateName"
+    ByHouseholdName = "ByHouseholdName"
+
+"""
 
 def read_csv_and_assign_living_pattern_tags(csv_filename_persons):
 
@@ -100,20 +112,7 @@ def read_csv_and_assign_living_pattern_tags(csv_filename_persons):
 
     return tagged_data
 
-
-"""""
-Skript zur Filterung und Zuweisung der Daten aus Synthesizer an den LPG:
-
-Die Daten der Personen aus Synthesizer werden benutzt, um daraus Haushalte im LPG zu erstellen, die
-so gut wie möglich denen aus Synthesizer gleichen. Dabei wird das Alter, das Geschlecht und vor allem das LivingPattern 
-der Personen verwendet. Schlussendlich soll die Zuweisung der Haushalte im LPG über die TemplatenNames/HouseholdNames erfolgen
-
-    ByPersons = "ByPersons"
-    ByTemplateName = "ByTemplateName"
-    ByHouseholdName = "ByHouseholdName"
-
-"""
-
+# All household templates registered in the LPG
 household_sizes = {
         "CHR01 Couple both at Work": 2,
         "CHR02 Couple, 30 - 64 age, with work": 2,
@@ -185,6 +184,7 @@ household_sizes = {
 
 
 def find_pattern(csv_filename_persons):
+    # Liest die csv aus und gibt die Daten zu den Haushalten weiter
     household_data = read_csv_and_assign_living_pattern_tags(csv_filename_persons)
 
     # Erstelle ein Dictionary, um Haushalte zu gruppieren
@@ -207,7 +207,7 @@ def find_pattern(csv_filename_persons):
 
     # Konvertiere das gruppierte Dictionary in eine Liste
     result = list(grouped_household_data.values())
-    # Zeige das Ergebnis
+    # Zeige das Ergebnis zur Überprüfung
     # for entry in result:
         # print(entry)
 
@@ -274,6 +274,7 @@ def find_pattern(csv_filename_persons):
                         }
                         template_data.append(new_template)
 
+            # Überprüfe ob es ein passendes Template gibt, dass die Altersstruktur matched
             best_matches = []
             num_children = sum(person['Alter'] < 18 for person in household['Personen'])
             num_seniors = sum(person['Alter'] > 64 for person in household['Personen'])
@@ -293,6 +294,8 @@ def find_pattern(csv_filename_persons):
                 # Wenn keine passenden Templates nach Altersanforderungen gefunden wurden, wähle alle verfügbaren
                 best_matches = template_data
 
+            # Finde das beste Template mithilfe eines Scoresystems: Das Template, welches die meisten Übereinstimmungen
+            # aufweist wird ausgewählt; bei Gleichstand wähle zufällig eines Derjenigen mit der höchsten Punktzahl
             best_pattern_scores = [(entry, 0) for entry in best_matches]
             for person_info in household['Personen']:
                 for i, (entry, score) in enumerate(best_pattern_scores):
@@ -330,6 +333,8 @@ def find_pattern(csv_filename_persons):
     return all_best_pattern, household_data
 
 def print_building_statistics(building_data):
+
+    # Gibt die Anzahl der Gebäude aus die betrachtet plus Personen und Haushalte
     total_buildings = len(building_data)
     print(f"Gesamtanzahl der Gebäude: {total_buildings}")
     print("-" * 40)
@@ -344,8 +349,9 @@ def print_building_statistics(building_data):
         print("-" * 30)
 
 def LPG_sekquasens_coupling(csv_filename_persons):
-    best_pattern, tagged_data = find_pattern(csv_filename_persons)
 
+    # Finde pro Haushalt das beste Template
+    best_pattern, tagged_data = find_pattern(csv_filename_persons)
     building_data = {}
     # Iterieren durch die `tagged_data` und fülle die Datenstruktur auf
     for data_point in tagged_data:
@@ -374,8 +380,11 @@ def LPG_sekquasens_coupling(csv_filename_persons):
         if building_id in building_data and household_id in building_data[building_id]:
             # Fügen Sie das Template zum Haushalt hinzu
             building_data[building_id][household_id]["Template Name"] = template_name
+
+    # Gibt Gebäudestatistik aus
     print_building_statistics(building_data)
 
+    # Sammelt die Daten und erstellt die Haushalte über die HouseholdData Klasse für die LPG Simulation
     household_data = {}
     for building_id, households in building_data.items():
         if building_id not in household_data:

@@ -16,12 +16,12 @@ self.LivingPatternTag = value ; analog zu Alter und Gender für PersonData
 
 """""
 
-
 def simulate_building(building_id, households, startdate, enddate, output_folder):
     all_households = list(households.values())
 
     # Aktualisiere den Ausgabeordner für dieses Gebäude
     output_folder = os.path.join(output_folder, f"Results_{building_id}")
+    # Directory in welchem die Berechnung durchgeführt wird; Wird nach Ende der Sim gelöscht
     calc_folder = r"C:\03_Repos\pylpg\pylpg"
 
     # Führen Sie lpg_execution.execute_lpg_with_many_householdata für das aktuelle Gebäude durch
@@ -39,58 +39,78 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
         calc_folder=calc_folder
     )
 
-    # Hier können Sie mit dem DataFrame `df` arbeiten, z.B., es in eine CSV-Datei exportieren.
 
-    # Löschen der Datei "profilegenerator.copy.db3" (falls vorhanden)
+    # Löschen der nicht weiter benötigten Dateien (falls vorhanden)
     file_to_delete = os.path.join(output_folder, "profilegenerator.copy.db3")
     if os.path.exists(file_to_delete):
         os.remove(file_to_delete)
 
-    # Löschen der Datei "finished.flag" (falls vorhanden)
     file_to_delete = os.path.join(output_folder, "finished.flag")
     if os.path.exists(file_to_delete):
         os.remove(file_to_delete)
 
-    # Löschen des Ordners "Temporary Files" (falls vorhanden)
     folder_to_delete = os.path.join(output_folder, "Temporary Files")
     if os.path.exists(folder_to_delete):
         shutil.rmtree(folder_to_delete)
 
-    # Löschen des Ordners "C1_ID" (falls vorhanden)
     folder_to_delete = os.path.join(calc_folder, "C" + "1_" + str(building_id))
     if os.path.exists(folder_to_delete):
         shutil.rmtree(folder_to_delete)
 
-    # Löschen des Ordners "LPG_win_ID" (falls vorhanden)
     folder_to_delete = os.path.join(calc_folder, "LPG_win_"+ str(building_id))
     if os.path.exists(folder_to_delete):
         shutil.rmtree(folder_to_delete)
 
 
 if __name__ == "__main__":
-    csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit_8Buildings.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
-    household_data = LPG_sekquasens_coupling(csv_filename_persons)
+
+    """
+    Function
+    ----------
+    retrieves weather data from Climate Change Service (CDS) through the API
+
+    Parameters
+    ----------
+    csv_filename_persons: string 
+        Path to folder that contains the person information
+    output_folder: string 
+        Path to results directory
+    startdate: string
+        MM.DD.YYYY
+    enddate: string
+        MM.DD.YYYY
+    num_processes: int
+        1 - max. number of cores
+
+    Returns
+    -------
+    data : csv Format
+    
+    """
 
     # Simulationsparameter
+    csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit_8Buildings.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
+    output_folder = r"C:\03_Repos\pylpg\Data\Results"
     startdate = "01.01.2024"  # Wichtig: MM.TT.JJJJ
     enddate = "01.01.2024"
     start_time = time.time()
+    num_processes = 8  # Anzahl der parallel auszuführenden Prozesse = Anzahl Kerne (RAM beachten !)
 
+    # Erstellt die benötigten Haushalte pro Gebäude mithilfe der Templates und Klassen des LPG
+    household_data = LPG_sekquasens_coupling(csv_filename_persons)
     # Erstelle eine Liste von Argumenten für die Gebäudesimulationen
-    building_simulations_args = [(building_id, households, startdate, enddate, r"C:\03_Repos\pylpg\Data\Results") for building_id, households in
+    building_simulations_args = [(building_id, households, startdate, enddate, output_folder) for building_id, households in
                                  household_data.items()]
 
     # Erstelle einen Pool von Prozessen, um die Simulationen parallel auszuführen
-    num_processes = 8  # Anzahl der parallel auszuführenden Prozesse
     pool = multiprocessing.Pool(processes=num_processes)
-
     # Führe die Simulationen parallel aus
     pool.starmap(simulate_building, building_simulations_args)
-
     # Beende den Pool und warte auf das Ende aller Prozesse
     pool.close()
     pool.join()
 
+    # Dauer der Simulation
     end_time = time.time()
     execution_time = end_time - start_time
     print(f"Das Skript hat {execution_time} Sekunden gedauert.")
