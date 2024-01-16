@@ -1,6 +1,4 @@
-from pylpg import lpg_execution, lpgdata, lpgpythonbindings
-from pylpg.lpgdata import *
-from pylpg.lpgpythonbindings import *
+from pylpg import lpg_execution
 import multiprocessing
 import time
 import shutil
@@ -22,7 +20,7 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
     # Aktualisiere den Ausgabeordner für dieses Gebäude
     output_folder = os.path.join(output_folder, f"Results_{building_id}")
     # Directory in welchem die Berechnung durchgeführt wird; Wird nach Ende der Sim gelöscht
-    calc_folder = r"C:\03_Repos\pylpg\pylpg"
+    calc_folder = r"C:\03_Repos\sekquasens_interfaces\pylpg\pylpg"
 
     # Führen Sie lpg_execution.execute_lpg_with_many_householdata für das aktuelle Gebäude durch
     df = lpg_execution.execute_lpg_with_many_householdata(
@@ -89,8 +87,8 @@ if __name__ == "__main__":
     """
 
     # Simulationsparameter
-    csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit_8Buildings.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
-    output_folder = r"C:\03_Repos\pylpg\Data\Results"
+    csv_filename_persons = r"C:\03_Repos\sekquasens_interfaces\pylpg\Data\persons_moabit_8Buildings.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
+    output_folder = r"C:\03_Repos\sekquasens_interfaces\pylpg\Data\Results"
     startdate = "01.01.2024"  # Wichtig: MM.TT.JJJJ
     enddate = "01.01.2024"
     start_time = time.time()
