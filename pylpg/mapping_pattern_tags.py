@@ -1,5 +1,6 @@
 import csv
 import random
+import pandas as pd
 import statistics
 from pylpg.lpgdata import *
 from pylpg.lpgpythonbindings import *
@@ -403,6 +404,21 @@ def LPG_sekquasens_coupling(csv_filename_persons):
 
     return household_data
 
+def calculate_annual_requirement(df):
+
+    df['Date'] = pd.to_datetime(df['Time']).dt.date
+    unique_days = df['Date'].nunique()
+    total = df['Sum'].sum()
+    average_daily_kwh = total / unique_days
+    annual_energy_requirement = average_daily_kwh * 365
+
+    return annual_energy_requirement
+
+def resolution_to_seconds(resolution):
+
+    h, m, s = map(int, resolution.split(':'))
+
+    return h * 3600 + m * 60 + s
 # csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
 # household_data = LPG_sekquasens_coupling(csv_filename_persons)
 

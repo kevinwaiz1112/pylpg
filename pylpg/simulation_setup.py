@@ -3,6 +3,7 @@ import multiprocessing
 import time
 import shutil
 import os
+import pandas as pd
 from mapping_pattern_tags import *
 
 """""
@@ -14,7 +15,18 @@ self.LivingPatternTag = value ; analog zu Alter und Gender für PersonData
 
 """""
 
-def simulate_building(building_id, households, startdate, enddate, output_folder):
+def get_completed_buildings(status_file):
+    if os.path.exists(status_file):
+        with open(status_file, 'r') as file:
+            completed_buildings = file.read().splitlines()
+            return set(completed_buildings)
+    return set()
+
+def update_status_file(status_file, building_id):
+    with open(status_file, 'a') as file:
+        file.write(f"{building_id}\n")
+
+def simulate_building(building_id, households, startdate, enddate, output_folder, status_file, resolution):
     all_households = list(households.values())
 
     # Aktualisiere den Ausgabeordner für dieses Gebäude
@@ -30,12 +42,40 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
         startdate=startdate,
         enddate=enddate,
         simulate_transportation=False,
-        resolution="01:00:00",
+        resolution=resolution,
         random_seed=2,
         building_id=building_id,
         output_folder=output_folder,
         calc_folder=calc_folder
     )
+
+    update_status_file(status_file, building_id)
+
+    # Collect annual demand data
+    seconds = resolution_to_seconds(resolution)
+    water_types = ['Cold Water', 'Warm Water', 'Hot Water']
+    results = {}
+
+    # Berechne den jährlichen Bedarf für Strom
+    electricity_file_path = os.path.join(output_folder, f"Results_{building_id}",
+                                         f"SumProfiles_{seconds}s.House.Electricity.csv")
+    if os.path.exists(electricity_file_path):
+        df_electricity = pd.read_csv(electricity_file_path)
+        results['Electricity_kWh'] = calculate_annual_requirement(df_electricity.rename(columns={'Sum [kWh]': 'Sum'}))
+
+    # Berechne den jährlichen Bedarf für Wasser (kalt, warm, heiß)
+    for water_type in water_types:
+        water_file_path = os.path.join(output_folder, f"Results_{building_id}",
+                                       f"SumProfiles_{seconds}s.House.{water_type}.csv")
+        if os.path.exists(water_file_path):
+            df_water = pd.read_csv(water_file_path)
+            results[f'{water_type.replace(" ", "_")}_L'] = calculate_annual_requirement(
+                df_water.rename(columns={'Sum [L]': 'Sum'}))
+
+    # Speichere die Ergebnisse in einer CSV-Datei
+    with open(os.path.join(output_folder, "annual_requirements.csv"), "a") as file:
+        file.write(
+            f"{building_id},{results.get('Electricity_kWh', 0)},{results.get('Cold_Water_L', 0)},{results.get('Warm_Water_L', 0)},{results.get('Hot_Water_L', 0)}\n")
 
 
     # Löschen der nicht weiter benötigten Dateien (falls vorhanden)
@@ -60,30 +100,8 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
         shutil.rmtree(folder_to_delete)
 
 
-if __name__ == "__main__":
-    """
-    Function
-    ----------
-    retrieves weather data from Climate Change Service (CDS) through the API
-
-    Parameters
-    ----------
-    csv_filename_persons: string 
-        Path to folder that contains the person information
-    output_folder: string 
-        Path to results directory
-    startdate: string
-        MM.DD.YYYY
-    enddate: string
-        MM.DD.YYYY
-    num_processes: int
-        1 - max. number of cores
-
-    Returns
-    -------
-    data : csv Format
-
-    """
+"""
+    from simulation_setup import *
 
     # Simulationsparameter
     csv_filename_persons = r"C:\03_Repos\sekquasens_interfaces\pylpg\Data\persons_moabit_oneBuilding.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
@@ -91,14 +109,20 @@ if __name__ == "__main__":
     startdate = "01.01.2024"  # Wichtig: MM.TT.JJJJ
     enddate = "01.01.2024"
     start_time = time.time()
+    resolution = "01:00:00"
     num_processes = 1  # Anzahl der parallel auszuführenden Prozesse = Anzahl Kerne (RAM beachten !)
 
     # Erstellt die benötigten Haushalte pro Gebäude mithilfe der Templates und Klassen des LPG
     household_data = LPG_sekquasens_coupling(csv_filename_persons)
     # Erstelle eine Liste von Argumenten für die Gebäudesimulationen
-    building_simulations_args = [(building_id, households, startdate, enddate, output_folder) for
-                                 building_id, households in
-                                 household_data.items()]
+    status_file = os.path.join(output_folder, "simulation_status.txt")
+    force_resimulate_all = False  # Setzen Sie dies auf True, um alle Gebäude neu zu simulieren
+    completed_buildings = get_completed_buildings(status_file)
+    building_simulations_args = []
+    for building_id, households in household_data.items():
+        if force_resimulate_all or building_id not in completed_buildings:
+            building_simulations_args.append(
+                (building_id, households, startdate, enddate, output_folder, status_file, resolution, force_resimulate_all))
 
     # Erstelle einen Pool von Prozessen, um die Simulationen parallel auszuführen
     pool = multiprocessing.Pool(processes=num_processes)
@@ -113,3 +137,4 @@ if __name__ == "__main__":
     execution_time = end_time - start_time
     print(f"Das Skript hat {execution_time} Sekunden gedauert.")
 
+"""
