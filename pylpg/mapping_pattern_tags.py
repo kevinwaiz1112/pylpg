@@ -1,4 +1,5 @@
 import csv
+import json
 import random
 import pandas as pd
 import statistics
@@ -21,29 +22,29 @@ der Personen verwendet. Schlussendlich soll die Zuweisung der Haushalte im LPG �
 
 """
 
-def read_csv_and_assign_living_pattern_tags(csv_filename_persons):
+def read_csv_and_assign_living_pattern_tags(person_presence_data_json):
 
     # Mapping keys:
-    # 1 = "Kind unter 6"
-    # 2 = "Schüler"
-    # 3 = "Student"
-    # 4 = "Rentner"
-    # 5 = "sonstige NEP"
-    # 6 = "Vollzeit"
-    # 7 = "Teilzeit"
-    # 8 = "Azubi"
-    # 9 = "Erwerbslos"
+    # "toddler" = "Kind unter 6"
+    # "pupil" = "Schüler"
+    # "student" = "Student"
+    # "retiree" = "Rentner"
+    # "other non-working individual" = "sonstige NEP"
+    # "full-time worker" = "Vollzeit"
+    # "part-time worker" = "Teilzeit"
+    # "vocational trainee" = "Azubi"
+    # "unemployed" = "Erwerbslos"
 
     tag_mapping = {
-        "1": LivingPatternTags.Living_Pattern_Kindergarden,
-        "2": LivingPatternTags.Living_Pattern_School,
-        "3": LivingPatternTags.Living_Pattern_University_Student_Independent, # eventuell nach dem String: Student suchen statt dem Pattern
-        "4": LivingPatternTags.Living_Pattern_Retiree,
-        "5": LivingPatternTags.Living_Pattern_Stay_at_Home_Regular,  #
-        "6": LivingPatternTags.Living_Pattern_Office_Job_Medium_7_9am,
-        "7": LivingPatternTags.Living_Pattern_Part_Time_Job,
-        "8": LivingPatternTags.Living_Pattern_Shift_work_3_Shifts_A,
-        "9": LivingPatternTags.Living_Pattern_Stay_at_Home,
+        "toddler": LivingPatternTags.Living_Pattern_Kindergarden,
+        "pupil": LivingPatternTags.Living_Pattern_School,
+        "student": LivingPatternTags.Living_Pattern_University_Student_Independent, # eventuell nach dem String: Student suchen statt dem Pattern
+        "retiree": LivingPatternTags.Living_Pattern_Retiree,
+        "other non-working individual": LivingPatternTags.Living_Pattern_Stay_at_Home_Regular,  #
+        "full-time worker": LivingPatternTags.Living_Pattern_Office_Job_Medium_7_9am,
+        "part-time worker": LivingPatternTags.Living_Pattern_Part_Time_Job,
+        "vocational trainee": LivingPatternTags.Living_Pattern_Shift_work_3_Shifts_A,
+        "unemployed": LivingPatternTags.Living_Pattern_Stay_at_Home,
     }
 
     """""        
@@ -72,44 +73,41 @@ def read_csv_and_assign_living_pattern_tags(csv_filename_persons):
             if lower <= age <= upper:
                 return age_values[i]
 
-    # Umwandlung Zahl in Geschlecht
-    def convert_gender(gen):
-        if gen == 1:
-            gender = "male"
-        else:
-            gender = "female"
+    # Pfad zur JSON-Datei
+    json_dateipfad = person_presence_data_json
 
-        return gender
-
+    # Lese die JSON-Datei
+    with open(json_dateipfad, 'r', encoding='utf-8') as datei:
+        daten = json.load(datei)
 
     tagged_data = []
 
-    with open(csv_filename_persons, 'r', newline='', encoding='utf-8') as csvfile:
-        data = csv.DictReader(csvfile, delimiter=';')
+    # Durchlaufe alle Features im JSON
+    for feature in daten['features']:
+        gebaeude_id = feature['id']
+        households = feature['properties']['household']
+        for household in households:
+            haushalt_id = household['household_id']
+            for person in household['persons']:
+                person_id = person['person_id']
+                alter = person['age']
+                geschlecht = person['sex']
+                status = person['status']
 
-        for row in data:
+                if status in tag_mapping:
+                    tag = tag_mapping[status]
+                else:
+                    tag = LivingPatternTags.Living_Pattern_All  # Standard-Tag
 
-            alter= int(row['age'])
-            gen = int(row["sex"])
-            # Konvertiere das Alter und Geschlecht
-            # alter = convert_age(alter)
-            gender = convert_gender(gen)
-
-            if row["status"] in tag_mapping:
-                tag = tag_mapping[row["status"]]
-            else:
-                tag = LivingPatternTags.Living_Pattern_All  # Standard-Tag
-
-            tagged_data.append({
-                "Gebaeude_ID": row["id"],
-                "Haushalt_ID": row["hh_id"],
-                "Person_ID": row["p_id"],
-                "Alter": int(alter),
-                "Geschlecht": gender,
-                "Status": row["status"],
-                "Tag": tag,
-                "Gruppe": row["group"]
-            })
+                tagged_data.append({
+                    "Gebaeude_ID": gebaeude_id,
+                    "Haushalt_ID": haushalt_id,
+                    "Person_ID": person_id,
+                    "Alter": alter,
+                    "Geschlecht": geschlecht,
+                    "Status": status,
+                    "Tag": tag,
+                })
 
     return tagged_data
 
@@ -184,9 +182,9 @@ household_sizes = {
 }
 
 
-def find_pattern(csv_filename_persons):
-    # Liest die csv aus und gibt die Daten zu den Haushalten weiter
-    household_data = read_csv_and_assign_living_pattern_tags(csv_filename_persons)
+def find_pattern(person_presence_data_json):
+    # Liest die json aus und gibt die Daten zu den Haushalten weiter
+    household_data = read_csv_and_assign_living_pattern_tags(person_presence_data_json)
 
     # Erstelle ein Dictionary, um Haushalte zu gruppieren
     grouped_household_data = defaultdict(lambda: {'Gebaeude_ID': None, 'Haushalt_ID': None, 'Personen': []})
@@ -210,7 +208,7 @@ def find_pattern(csv_filename_persons):
     result = list(grouped_household_data.values())
     # Zeige das Ergebnis zur Überprüfung
     # for entry in result:
-        # print(entry)
+      #  print(entry)
 
     best_pattern = []
     all_best_pattern = []
@@ -349,10 +347,10 @@ def print_building_statistics(building_data):
         print(f"Anzahl der Personen: {num_persons}")
         print("-" * 30)
 
-def LPG_sekquasens_coupling(csv_filename_persons):
+def LPG_sekquasens_coupling(person_presence_data_json):
 
     # Finde pro Haushalt das beste Template
-    best_pattern, tagged_data = find_pattern(csv_filename_persons)
+    best_pattern, tagged_data = find_pattern(person_presence_data_json)
     building_data = {}
     # Iterieren durch die `tagged_data` und fülle die Datenstruktur auf
     for data_point in tagged_data:
@@ -419,8 +417,7 @@ def resolution_to_seconds(resolution):
     h, m, s = map(int, resolution.split(':'))
 
     return h * 3600 + m * 60 + s
-# csv_filename_persons = r"C:\03_Repos\pylpg\Data\persons_moabit.csv"  # Ersetzen Sie dies durch den tatsächlichen Dateinamen
-# household_data = LPG_sekquasens_coupling(csv_filename_persons)
+
 
 
 
