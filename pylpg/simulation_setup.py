@@ -51,33 +51,6 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
 
     update_status_file(status_file, building_id)
 
-    # Collect annual demand data
-    seconds = resolution_to_seconds(resolution)
-    water_types = ['Cold Water', 'Warm Water', 'Hot Water']
-    results = {}
-
-    # Berechne den jährlichen Bedarf für Strom
-    electricity_file_path = os.path.join(output_folder, f"Results_{building_id}",
-                                         f"SumProfiles_{seconds}s.House.Electricity.csv")
-    if os.path.exists(electricity_file_path):
-        df_electricity = pd.read_csv(electricity_file_path)
-        results['Electricity_kWh'] = calculate_annual_requirement(df_electricity.rename(columns={'Sum [kWh]': 'Sum'}))
-
-    # Berechne den jährlichen Bedarf für Wasser (kalt, warm, heiß)
-    for water_type in water_types:
-        water_file_path = os.path.join(output_folder, f"Results_{building_id}",
-                                       f"SumProfiles_{seconds}s.House.{water_type}.csv")
-        if os.path.exists(water_file_path):
-            df_water = pd.read_csv(water_file_path)
-            results[f'{water_type.replace(" ", "_")}_L'] = calculate_annual_requirement(
-                df_water.rename(columns={'Sum [L]': 'Sum'}))
-
-    # Speichere die Ergebnisse in einer CSV-Datei
-    with open(os.path.join(output_folder, "annual_requirements.csv"), "a") as file:
-        file.write(
-            f"{building_id},{results.get('Electricity_kWh', 0)},{results.get('Cold_Water_L', 0)},{results.get('Warm_Water_L', 0)},{results.get('Hot_Water_L', 0)}\n")
-
-
     # Löschen der nicht weiter benötigten Dateien (falls vorhanden)
     file_to_delete = os.path.join(output_folder, "profilegenerator.copy.db3")
     if os.path.exists(file_to_delete):
