@@ -253,7 +253,7 @@ def execute_lpg_with_many_householdata(
     random_seed: int = None,
     resolution: str = None,
     # resolution_int: str = "00:01:00",
-    energy_intensity: EnergyIntensityType = EnergyIntensityType.Random,
+    energy_intensity: EnergyIntensityType = EnergyIntensityType.EnergySaving,
     building_id: str = None,
     output_folder: str = None,
     calc_folder: str = None
