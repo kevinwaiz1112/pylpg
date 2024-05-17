@@ -554,12 +554,18 @@ class LPGExecutor:
                 os.remove(file)
 
     def execute_lpg_binaries(self) -> Any:
-        # execute LPG
+        # Pfad zur ausführbaren Datei und das Arbeitsverzeichnis
         pathname = Path(self.calculation_directory, self.simengine_src_filename)
-        print("executing in " + str(self.calculation_directory))
+        calculation_directory_str = str(self.calculation_directory)
+
+        # Debugging-Ausgaben
+        print(f"Executing command: {[str(pathname), 'processhousejob', '-j', 'calcspec.json']}")
+        print(f"Working directory: {calculation_directory_str}")
+
+        # Ausführen des Befehls
         subprocess.run(
             [str(pathname), "processhousejob", "-j", "calcspec.json"],
-            cwd=str(self.calculation_directory),
+            cwd=calculation_directory_str,
         )
 
     def make_default_lpg_settings(self, year: int, building_id, resolution, output_folder) -> HouseCreationAndCalculationJob:
@@ -586,7 +592,8 @@ class LPGExecutor:
         cs.InternalTimeResolution = str("00:01:00")
         cs.CalcOptions = [
             CalcOption.SumProfileExternalEntireHouse,
-            CalcOption.SumProfileExternalIndividualHouseholds
+            CalcOption.SumProfileExternalIndividualHouseholds,
+            # CalcOption.BodilyActivityStatistics
         ]
         cs.EnergyIntensityType = EnergyIntensityType.EnergySaving
         cs.OutputDirectory = output_folder
