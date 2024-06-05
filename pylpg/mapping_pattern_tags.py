@@ -208,7 +208,7 @@ def find_pattern(person_presence_data_json):
     result = list(grouped_household_data.values())
     # Zeige das Ergebnis zur Überprüfung
     # for entry in result:
-      #  print(entry)
+       # print(entry)
 
     best_pattern = []
     all_best_pattern = []
@@ -318,6 +318,9 @@ def find_pattern(person_presence_data_json):
                 'Template Name': best_pattern_name
             }
 
+            # if household["Gebaeude_ID"] == "ID_D2CE023A-D5E0-4E8E-A330-E161739BF000":
+             #    print(best_pattern)
+
             if not best_pattern:
                 print("Kein Pattern gefunden. Es wird ein zufälliges mit gleicher Personenzahl gewählt")
                 random_temp = random.choice(best_matches)
@@ -381,7 +384,9 @@ def LPG_sekquasens_coupling(person_presence_data_json):
             building_data[building_id][household_id]["Template Name"] = template_name
 
     # Gibt Gebäudestatistik aus
-    print_building_statistics(building_data)
+    print_building_data = False
+    if print_building_data == True:
+        print_building_statistics(building_data)
 
     # Sammelt die Daten und erstellt die Haushalte über die HouseholdData Klasse für die LPG Simulation
     household_data = {}

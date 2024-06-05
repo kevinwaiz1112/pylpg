@@ -5,6 +5,7 @@ import time
 import shutil
 import os
 import pandas as pd
+import sqlite3
 
 
 """""
@@ -28,7 +29,8 @@ def update_status_file(status_file, building_id):
         file.write(f"{building_id}\n")
 
 def simulate_building(building_id, households, startdate, enddate, output_folder, calc_folder, status_file, resolution):
-    all_households = list(households.values())
+    all_households_unsorted = list(households.values())
+    all_households = sorted(all_households_unsorted, key=lambda x: x.HouseholdNameSpec.HouseholdReference)
 
     # Aktualisiere den Ausgabeordner für dieses Gebäude
     output_folder = os.path.join(output_folder, f"Results_{building_id}")
@@ -50,6 +52,11 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
     )
 
     update_status_file(status_file, building_id)
+    households_ids = []
+    for idx, hhd in enumerate(all_households):
+        hhd.Name = hhd.Name or f"Household_{idx + 1}"
+        households_ids.append(hhd.Name)
+    rename_files(output_folder, households_ids)
 
     # Liste der zu löschenden Dateien und Ordner
     files_and_folders_to_delete = [
@@ -61,13 +68,38 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
     ]
 
     # Durchlaufen der Liste und Löschen der Dateien/Ordner, falls vorhanden
-    for path in files_and_folders_to_delete:
-        if os.path.exists(path):
-            if os.path.isfile(path):
-                os.remove(path)  # Löschen einer Datei
-            elif os.path.isdir(path):
-                shutil.rmtree(path)  # Löschen eines Ordners
+    delete_files = True
+    if delete_files == True:
+        for path in files_and_folders_to_delete:
+            if os.path.exists(path):
+                if os.path.isfile(path):
+                    os.remove(path)  # Löschen einer Datei
+                elif os.path.isdir(path):
+                    shutil.rmtree(path)  # Löschen eines Ordners
 
+
+def rename_files(output_directory, household_ids):
+    directory = os.path.join(output_directory, f"Results")
+    for filename in os.listdir(directory):
+        if filename.startswith("SumProfiles_3600s.HH") and filename.endswith(".csv"):
+            # Extrahiere die Nummer aus dem Dateinamen
+            parts = filename.split('.')
+            number = int(parts[1][2:])  # Teile den Dateinamen und hole die Nummer
+
+            # Prüfe, ob die Nummer innerhalb des Bereichs der IDs ist
+            if 1 <= number <= len(household_ids):
+                new_filename = f"SumProfiles_3600s.HH{number}_{household_ids[number - 1]}.{parts[2]}.csv"
+                os.rename(os.path.join(directory, filename), os.path.join(directory, new_filename))
+
+        elif filename.startswith("BodilyActivityLevel.Outside.HH") and filename.endswith(".json"):
+            # Extrahiere die Nummer aus dem Dateinamen
+            parts = filename.split('.')
+            number = int(parts[2][2:])  # Teile den Dateinamen und hole die Nummer
+
+            # Prüfe, ob die Nummer innerhalb des Bereichs der IDs ist
+            if 1 <= number <= len(household_ids):
+                new_filename = f"BodilyActivityLevel.Outside.HH{number}_{household_ids[number - 1]}.json"
+                os.rename(os.path.join(directory, filename), os.path.join(directory, new_filename))
 
 def save_annual_requirements_to_csv(building_id, output_folder, resolution):
     seconds = resolution_to_seconds(resolution)
