@@ -107,14 +107,15 @@ def save_annual_requirements_to_csv(building_id, output_folder, resolution):
     results = {}
 
     # Berechne den jährlichen Bedarf für Strom
-    electricity_file_path = os.path.join(output_folder, f"Results_{building_id}", f"Results",
+    electricity_file_path = os.path.join(output_folder, f"Results_{building_id}", "Results",
                                          f"SumProfiles_{seconds}s.House.Electricity.csv")
-    df_electricity = pd.read_csv(electricity_file_path, delimiter=';')
-    results['Electricity_kWh'] = calculate_annual_requirement(df_electricity.rename(columns={'Sum [kWh]': 'Sum'}))
+    if os.path.exists(electricity_file_path):
+        df_electricity = pd.read_csv(electricity_file_path, delimiter=';')
+        results['Electricity_kWh'] = calculate_annual_requirement(df_electricity.rename(columns={'Sum [kWh]': 'Sum'}))
 
     # Berechne den jährlichen Bedarf für Wasser (kalt, warm, heiß)
     for water_type in water_types:
-        water_file_path = os.path.join(output_folder, f"Results_{building_id}", f"Results",
+        water_file_path = os.path.join(output_folder, f"Results_{building_id}", "Results",
                                        f"SumProfiles_{seconds}s.House.{water_type}.csv")
         if os.path.exists(water_file_path):
             df_water = pd.read_csv(water_file_path, delimiter=';')
@@ -122,8 +123,15 @@ def save_annual_requirements_to_csv(building_id, output_folder, resolution):
                 df_water.rename(columns={'Sum [L]': 'Sum'}))
 
     # Speichere die Ergebnisse in einer CSV-Datei
-    with open(os.path.join(output_folder, f"Results_{building_id}", "annual_requirements.csv"), "a") as file:
-        header = "Gebaeude-ID,Electricity_kWh,Cold_Water_L,Warm_Water_L,Hot_Water_L\n"
-        file.write(header)
-        data_line = f"{building_id},{results.get('Electricity_kWh', 0)},{results.get('Cold_Water_L', 0)},{results.get('Warm_Water_L', 0)},{results.get('Hot_Water_L', 0)}\n"
+    output_file_path = os.path.join(output_folder, f"Results_{building_id}", "annual_requirements.csv")
+    header = "Gebaeude-ID,Electricity_kWh,Cold_Water_L,Warm_Water_L,Hot_Water_L\n"
+    data_line = f"{building_id},{results.get('Electricity_kWh', 0)},{results.get('Cold_Water_L', 0)},{results.get('Warm_Water_L', 0)},{results.get('Hot_Water_L', 0)}\n"
+
+    # Prüfen, ob die Datei existiert, und entsprechend den Header schreiben
+    if not os.path.exists(output_file_path):
+        with open(output_file_path, "w") as file:
+            file.write(header)
+
+    with open(output_file_path, "a") as file:
         file.write(data_line)
+

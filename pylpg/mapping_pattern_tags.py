@@ -409,12 +409,12 @@ def LPG_sekquasens_coupling(person_presence_data_json):
 
 def calculate_annual_requirement(df):
 
-    df['Date'] = pd.to_datetime(df['Time']).dt.date
+    # Annahme, dass das Datum im Format '%d.%m.%Y %H:%M' vorliegt
+    df['Date'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M').dt.date
     unique_days = df['Date'].nunique()
     total = df['Sum'].sum()
     average_daily_kwh = total / unique_days
     annual_energy_requirement = average_daily_kwh * 365
-
     return annual_energy_requirement
 
 def resolution_to_seconds(resolution):
