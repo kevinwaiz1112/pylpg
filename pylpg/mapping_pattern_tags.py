@@ -38,11 +38,25 @@ def read_csv_and_assign_living_pattern_tags(person_presence_data_json):
     tag_mapping = {
         "toddler": LivingPatternTags.Living_Pattern_Kindergarden,
         "pupil": LivingPatternTags.Living_Pattern_School,
+        # Living_Pattern_School_Medium_7_9am
         "student": LivingPatternTags.Living_Pattern_University_Student_Independent, # eventuell nach dem String: Student suchen statt dem Pattern
+        # Living_Pattern_University
+        # Living_Pattern_University_Student_Living_at_Home
         "retiree": LivingPatternTags.Living_Pattern_Retiree,
-        "other non-working individual": LivingPatternTags.Living_Pattern_Stay_at_Home_Regular,  #
+        "other non-working individual": LivingPatternTags.Living_Pattern_Stay_at_Home_Regular,
         "full-time worker": LivingPatternTags.Living_Pattern_Office_Job_Medium_7_9am,
+        # LivingPatternTags.Living_Pattern_Office_Job,
+        # LivingPatternTags.Living_Pattern_Office_Job_Early_5_7am,
+        # LivingPatternTags.Living_Pattern_Office_Job_Late_9_11am,
+        # LivingPatternTags.Living_Pattern_Office_Job_Medium_7_9am,
+        # LivingPatternTags.Living_Pattern_Office_Worker
+        # Living_Pattern_Shift_work = "Living Pattern / Shift work"
+        # Living_Pattern_Shift_work_3_Shifts_A = "Living Pattern / Shift work / 3 Shifts A"
+        # Living_Pattern_Shift_work_3_Shifts_B = "Living Pattern / Shift work / 3 Shifts B"
+        # Living_Pattern_Work_From_Home
+        # Living_Pattern_Work_From_Home_Full_Time_5_days
         "part-time worker": LivingPatternTags.Living_Pattern_Part_Time_Job,
+        # Living_Pattern_Work_From_Home_Part_Time
         "vocational trainee": LivingPatternTags.Living_Pattern_Shift_work_3_Shifts_A,
         "unemployed": LivingPatternTags.Living_Pattern_Stay_at_Home,
     }
@@ -264,11 +278,13 @@ def find_pattern(person_presence_data_json):
                         # Template mit dem gleichen Namen bereits vorhanden
                         existing_template['ages'].append(template.Age)
                         existing_template['patterns'].append(template.LivingPattern)
+                        existing_template['gender'].append(template.Gender.value)
                     else:
                         # Template mit diesem Namen noch nicht in der Liste
                         new_template = {
                             'Template Name': template.TemplateName,
                             'ages': [template.Age],
+                            'gender': [template.Gender.value],
                             'patterns': [template.LivingPattern]
                         }
                         template_data.append(new_template)
@@ -306,6 +322,9 @@ def find_pattern(person_presence_data_json):
             best_patterns = [entry for entry, score in best_pattern_scores if score == max_score]
 
             if len(best_patterns) > 1:
+                if num_persons == 1:
+                    best_patterns = [pattern for pattern in best_patterns if
+                                         pattern['gender'][0] == person_info['Geschlecht'].capitalize()]
                 best_pattern = random.choice(best_patterns)
             else:
                 best_pattern = best_patterns[0]
@@ -319,7 +338,8 @@ def find_pattern(person_presence_data_json):
             }
 
             # if household["Gebaeude_ID"] == "ID_D2CE023A-D5E0-4E8E-A330-E161739BF000":
-             #    print(best_pattern)
+            #   print("Ergebnis:", best_pattern)
+            # print("-----------------------------------------------------------------")
 
             if not best_pattern:
                 print("Kein Pattern gefunden. Es wird ein zufälliges mit gleicher Personenzahl gewählt")
@@ -422,7 +442,4 @@ def resolution_to_seconds(resolution):
     h, m, s = map(int, resolution.split(':'))
 
     return h * 3600 + m * 60 + s
-
-
-
 
