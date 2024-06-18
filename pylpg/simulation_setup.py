@@ -101,6 +101,17 @@ def rename_files(output_directory, household_ids):
                 new_filename = f"BodilyActivityLevel.Outside.HH{number}_{household_ids[number - 1]}.json"
                 os.rename(os.path.join(directory, filename), os.path.join(directory, new_filename))
 
+    for filename in os.listdir(output_directory):
+        if filename.startswith("Persons.HH") and filename.endswith(".txt"):
+            # Extrahiere die Nummer aus dem Dateinamen
+            parts = filename.split('.')
+            number = int(parts[1][2:])  # Teile den Dateinamen und hole die Nummer
+
+            # Prüfe, ob die Nummer innerhalb des Bereichs der IDs ist
+            if 1 <= number <= len(household_ids):
+                new_filename = f"Persons.HH{number}_{household_ids[number - 1]}.txt"
+                os.rename(os.path.join(output_directory, filename), os.path.join(output_directory, new_filename))
+
 def save_annual_requirements_to_csv(building_id, output_folder, resolution):
     seconds = resolution_to_seconds(resolution)
     water_types = ['Cold Water', 'Warm Water', 'Hot Water']

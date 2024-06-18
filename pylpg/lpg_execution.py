@@ -253,6 +253,9 @@ def execute_lpg_with_many_householdata(
     random_seed: int = None,
     resolution: str = None,
     # resolution_int: str = "00:01:00",
+    geographic_location: JsonReference = JsonReference(
+        "(Germany) Berlin", StrGuid("484ea885-45de-4967-8d52-9d765f886692")
+    ),
     energy_intensity: EnergyIntensityType = EnergyIntensityType.EnergySaving,
     building_id: str = None,
     output_folder: str = None,
@@ -288,6 +291,7 @@ def execute_lpg_with_many_householdata(
         if enddate is not None:
             request.CalcSpec.set_EndDate(enddate)
         request.CalcSpec.EnergyIntensityType = energy_intensity
+        request.CalcSpec.GeographicLocation = geographic_location
         calcspecfilename = Path(lpe.calculation_directory, "calcspec.json")
         if simulate_transportation:
             request.CalcSpec.EnableTransportation = True
@@ -593,7 +597,7 @@ class LPGExecutor:
         cs.CalcOptions = [
             CalcOption.SumProfileExternalEntireHouse,
             CalcOption.SumProfileExternalIndividualHouseholds,
-            # CalcOption.BodilyActivityStatistics
+            CalcOption.BodilyActivityStatistics
         ]
         cs.EnergyIntensityType = EnergyIntensityType.EnergySaving
         cs.OutputDirectory = output_folder
