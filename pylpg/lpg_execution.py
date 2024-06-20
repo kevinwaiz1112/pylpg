@@ -10,12 +10,14 @@ import sys
 import time
 import traceback
 import zipfile
+from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Union
-
+import sqlite3
 import pandas as pd  # type: ignore
 import requests
-
+import csv
+import uuid
 from pylpg.lpgdata import *
 from pylpg.lpgpythonbindings import *
 
@@ -259,7 +261,9 @@ def execute_lpg_with_many_householdata(
     energy_intensity: EnergyIntensityType = EnergyIntensityType.EnergySaving,
     building_id: str = None,
     output_folder: str = None,
-    calc_folder: str = None
+    calc_folder: str = None,
+    city: str = None,
+    weather_path: str = None,
 
 
 ):
@@ -271,7 +275,7 @@ def execute_lpg_with_many_householdata(
             + str(len(householddata))
             + " households"
         )
-        lpe: LPGExecutor = LPGExecutor(calculation_index, clear_previous_calc, calc_folder, building_id)
+        lpe: LPGExecutor = LPGExecutor(calculation_index, clear_previous_calc, calc_folder, building_id, city, weather_path)
 
         # basic request
         request = lpe.make_default_lpg_settings(year, building_id, resolution, output_folder)
@@ -292,6 +296,17 @@ def execute_lpg_with_many_householdata(
             request.CalcSpec.set_EndDate(enddate)
         request.CalcSpec.EnergyIntensityType = energy_intensity
         request.CalcSpec.GeographicLocation = geographic_location
+        date = datetime.strptime(startdate, "%m.%d.%Y")
+        year = date.year
+        if city and weather_path is not None:
+            name, guid = lpe.update_database_with_weather_data(city, weather_path)
+            print(name, guid)
+            temperature_profile: JsonReference = JsonReference(f"{city}, {year}", StrGuid(str(guid)), )
+        else:
+            temperature_profile: JsonReference = JsonReference(
+                "Berlin, Germany 1996 from Deutscher Wetterdienst DWD (www.dwd.de)",
+                StrGuid("ec337ba6-60a1-404b-9db0-9be52c9e5702"), )
+        request.CalcSpec.set_TemperatureProfile(temperature_profile)
         calcspecfilename = Path(lpe.calculation_directory, "calcspec.json")
         if simulate_transportation:
             request.CalcSpec.EnableTransportation = True
@@ -518,7 +533,7 @@ class LPGExecutor:
             
     """
 
-    def __init__(self, calcidx: int, clear_previous_calc: bool, calc_folder, building_id):
+    def __init__(self, calcidx: int, clear_previous_calc: bool, calc_folder, building_id, city, weather_path):
         self.calc_folder = calc_folder
         self.calculation_directory = Path(calc_folder, "C" + str(calcidx) + "_" + str(building_id))
         self.working_directory = Path(calc_folder)
@@ -543,6 +558,43 @@ class LPGExecutor:
             shutil.copytree(self.calculation_src_directory, self.calculation_directory)
             print("Copied to: " + str(self.calculation_directory))
 
+    def update_database_with_weather_data(self, city, csv_path):
+        db_path = self.working_directory / "LPG_win" / "profilegenerator.db3"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        with open(csv_path, 'r') as csvfile:
+            reader = csv.DictReader(csvfile)
+            first_row = next(reader)
+            year = first_row['datetime'].split('-')[0]
+
+            cursor.execute("SELECT COUNT(*) FROM main.tblTemperatureProfiles WHERE Name LIKE ?",
+                           (f"{city}, {year}%",))
+            weather_StrGuid = str(uuid.uuid4())
+            city_name = f"{city}, {year}"
+            if cursor.fetchone()[0] > 0:
+                print("Weather profile for this city and year already exists.")
+                conn.close()
+                return city_name, weather_StrGuid
+
+            cursor.execute("""
+                INSERT INTO main.tblTemperatureProfiles (Name, Description, Guid)
+                VALUES (?, ?, ?)
+            """, (city_name, "Free Data from www.meteostat.de", weather_StrGuid))
+
+            # Abrufen der zuletzt eingefügten ID
+            temp_profile_id = cursor.lastrowid
+
+            for row in reader:
+                cursor.execute("""
+                    INSERT INTO main.tblTemperatures (Date, Temperatur, TempProfileID, Guid)
+                    VALUES (?, ?, ?, ?)
+                """, (row['datetime'], row['temp'], temp_profile_id, str(uuid.uuid4())))
+            conn.commit()
+            conn.close()
+            print("Weather data successfully added to the database.")
+
+        return city_name, weather_StrGuid
 
     def error_tolerating_directory_clean(self, path: Union[Path, str]):
         mypath = str(path)
@@ -597,7 +649,8 @@ class LPGExecutor:
         cs.CalcOptions = [
             CalcOption.SumProfileExternalEntireHouse,
             CalcOption.SumProfileExternalIndividualHouseholds,
-            CalcOption.BodilyActivityStatistics
+            CalcOption.BodilyActivityStatistics,
+            CalcOption.TemperatureFile
         ]
         cs.EnergyIntensityType = EnergyIntensityType.EnergySaving
         cs.OutputDirectory = output_folder

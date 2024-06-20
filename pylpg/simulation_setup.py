@@ -28,10 +28,12 @@ def update_status_file(status_file, building_id):
     with open(status_file, 'a') as file:
         file.write(f"{building_id}\n")
 
-def simulate_building(building_id, households, startdate, enddate, output_folder, calc_folder, status_file, resolution):
+def simulate_building(building_id, households, startdate, enddate, output_folder, calc_folder, status_file, resolution, city, weather_path):
     all_households_unsorted = list(households.values())
     all_households = sorted(all_households_unsorted, key=lambda x: x.HouseholdNameSpec.HouseholdReference)
 
+    startdate = startdate.strftime("%m.%d.%Y")
+    enddate = enddate.strftime("%m.%d.%Y")
     # Aktualisiere den Ausgabeordner für dieses Gebäude
     output_folder = os.path.join(output_folder, f"Results_{building_id}")
     # Directory in welchem die Berechnung durchgeführt wird; Wird nach Ende der Sim gelöscht
@@ -48,7 +50,9 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
         random_seed=2,
         building_id=building_id,
         output_folder=output_folder,
-        calc_folder=calc_folder
+        calc_folder=calc_folder,
+        city=city,
+        weather_path=weather_path
     )
 
     update_status_file(status_file, building_id)
