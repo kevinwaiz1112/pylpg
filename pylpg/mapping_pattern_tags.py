@@ -177,7 +177,7 @@ household_sizes = {
         "CHR48 Family with 2 children, without work": 4,
         "CHR49 Family with 1 child, without work": 3,
         "CHR50 Single woman with 3 children, without work": 4,
-        "CHR51 Coupleover 65 years II": 2,
+        "CHR51 Couple over 65 years II": 2,
         "CHR52 Student Flatsharing": 3,
         "CHR53 2 Parents, 1 Working, 2 Children": 4,
         "CHR54 Retired Couple, no work": 2,
@@ -443,3 +443,106 @@ def resolution_to_seconds(resolution):
 
     return h * 3600 + m * 60 + s
 
+def prepare_data_from_sources(df_temperature, building_data, df_anwesenheiten, id):
+    """
+    Bereitet die Daten direkt aus den neuen Quellen vor und strukturiert sie für das Modell.
+    Gibt die Daten in dem gewünschten Format aus.
+    """
+    all_templates = [
+        "CHR01", "CHR02", "CHR03", "CHR04", "CHR05", "CHR06", "CHR07", "CHR08", "CHR09",
+        "CHR10", "CHR11", "CHR12", "CHR13", "CHR14", "CHR15", "CHR16", "CHR17", "CHR18",
+        "CHR19", "CHR20", "CHR21", "CHR22", "CHR23", "CHR24", "CHR25", "CHR26", "CHR27",
+        "CHR28", "CHR29", "CHR30", "CHR31", "CHR32", "CHR33", "CHR34", "CHR35", "CHR36",
+        "CHR37", "CHR38", "CHR39", "CHR40", "CHR41", "CHR42", "CHR43", "CHR44", "CHR45",
+        "CHR46", "CHR47", "CHR48", "CHR49", "CHR50", "CHR51", "CHR52", "CHR53", "CHR54",
+        "CHR55", "CHR56", "CHR57", "CHR58", "CHR59", "CHR60", "CHR61", "CHS01", "CHS04",
+        "CHS12", "OR01"
+    ]
+
+    # Sicherstellen, dass die datetime-Spalte tatsächlich datetime-Objekte enthält
+    df_temperature['datetime'] = pd.to_datetime(df_temperature['datetime'])
+    # Falls notwendig, setze den Index auf die datetime-Spalte
+    df_temperature.set_index('datetime', inplace=True)
+
+    # Initialisiere die Spalten für das Feature-DataFrame
+    template_columns = list({household["Template Name"] for building_info in building_data.values()
+                             for household in building_info["Households"].values()})
+
+    # Kombinieren der Templates aus building_data mit all_templates und Sortieren
+    template_columns = sorted(set(template_columns).union(all_templates))
+    template_columns.sort()  # Sortiere die Templates alphabetisch
+
+    columns = ['occupancy', 'electricity consumption', 'warm water consumption', 'cold water consumption',
+               'building number', 'occupants per building',
+               'hour', 'week day', 'temperature'] + template_columns
+    df_features = pd.DataFrame(columns=columns)
+
+    # Schleife über die Gebäude-Daten aus building_data
+    for building_id, building_info in building_data.items():
+        if building_id != id:
+            continue
+        # Anzahl der Personen im Gebäude
+        n_persons_building = building_info["Total Persons"]
+
+        # Template-Zählungen aus der neuen Struktur extrahieren
+        household_templates = [household["Template Name"] for household in building_info["Households"].values()]
+        template_counts = {template: household_templates.count(template) for template in template_columns}
+
+        # Berechne die Gesamtanwesenheit pro Stunde für das Gebäude
+        if building_id in df_anwesenheiten.index:
+            occupancy_data = df_anwesenheiten.loc[building_id]
+        else:
+            occupancy_data = pd.Series({f"{i}": 0 for i in range(24)})
+
+        # Iteriere über die Zeitstempel der Temperaturdaten
+        for timestamp, temperature_row in df_temperature.iterrows():
+            hour = timestamp.hour
+            weekday = timestamp.weekday()
+
+            # Initialisiere die Zeile
+            row = {
+                'occupancy': occupancy_data.get(f"{hour}", 0),
+                'electricity consumption': 0,  # Verbrauch initialisieren
+                'warm water consumption': 0,  # Verbrauch initialisieren
+                'cold water consumption': 0,  # Verbrauch initialisieren
+                'inner device heat gains': 0,
+                'building number': building_id,
+                'occupants per building': n_persons_building,
+                'hour': hour,
+                'week day': weekday,
+                'temperature': temperature_row['temp']
+            }
+
+            # Füge die Template-Zählungen hinzu
+            for template in template_columns:
+                row[template] = template_counts.get(template, 0)
+
+            # Füge die Zeile dem DataFrame hinzu
+            df_features = pd.concat([df_features, pd.DataFrame([row])], ignore_index=True)
+
+    df_features = df_features.fillna(0)
+    return df_features
+
+def add_lagging_features(df, columns, lags):
+    """
+    Adds lagging features to a dataframe for specified columns and lag ranges.
+
+    Parameters:
+    ----------
+    df : pd.DataFrame
+        Dataframe containing the original features.
+    columns : list
+        List of columns to create lagging features for.
+    lags : list
+        List of lag steps to create for each column.
+
+    Returns:
+    -------
+    pd.DataFrame
+        Dataframe with lagging features added.
+    """
+    for col in columns:
+        for lag in lags:
+            df[f'{col}_lag_{lag}'] = df[col].shift(lag)
+    df = df.fillna(0)  # Replace NaN values created by lagging with 0
+    return df

@@ -31,7 +31,7 @@ class HouseTypes:
     HT01_House_with_a_10kWh_Battery_and_a_fuel_cell_battery_charger_5_MWh_yearly_space_heating_gas_heating = "HT01 House with a 10kWh Battery and a fuel cell battery charger, 5 MWh yearly space heating, gas heating"
     HT02_House_with_a_5_kWh_Battery_and_a_50_m2_Photovolatic_Array_5MWh_space_heating_gas_heating = "HT02 House with a 5 kWh Battery and a 50 m2 Photovolatic Array, 5MWh space heating, gas heating"
     HT03_House_with_a_solar_thermal_System_and_300_L_storage_tank_gas_heating = (
-        "HT03 House with a solar thermal System and 300 L storage tank, gas heating"
+        "HT03 House with a solar thermal System and 300 L models tank, gas heating"
     )
     HT04_Photovoltaic_System_5_kW_no_space_heating_gas_warm_water_heater = (
         "HT04 Photovoltaic System 5 kW, no space heating, gas warm water heater"
@@ -59,13 +59,13 @@ class HouseTypes:
         "HT16 Normal house with 20.000 kWh Heating, Continuous Flow Heat Pump"
     )
     HT18_Normal_House_with_15_000_kWh_Gas_Heating_and_a_hot_water_storage_tank = (
-        "HT18 Normal House with 15.000 kWh Gas Heating and a hot water storage tank"
+        "HT18 Normal House with 15.000 kWh Gas Heating and a hot water models tank"
     )
-    HT19_Normal_House_with_15_000_kWh_Heat_Demand_Heat_Pump_with_COP3_and_Hot_Water_Storage_Tank = "HT19 Normal House with 15.000 kWh Heat Demand, Heat Pump with COP3 and Hot Water Storage Tank"
+    HT19_Normal_House_with_15_000_kWh_Heat_Demand_Heat_Pump_with_COP3_and_Hot_Water_Storage_Tank = "HT19 Normal House with 15.000 kWh Heat Demand, Heat Pump with COP3 and Hot Water models Tank"
     HT20_Single_Family_House_no_heating_cooling = (
         "HT20 Single Family House (no heating/cooling)"
     )
-    HT21_Normal_House_with_15_000_kWh_Heat_Demand_Heat_Pump_with_COP3_and_Hot_Water_Storage_Tank_Heat_Pump_Electricity = "HT21 Normal House with 15.000 kWh Heat Demand, Heat Pump with COP3 and Hot Water Storage Tank, Heat Pump Electricity"
+    HT21_Normal_House_with_15_000_kWh_Heat_Demand_Heat_Pump_with_COP3_and_Hot_Water_Storage_Tank_Heat_Pump_Electricity = "HT21 Normal House with 15.000 kWh Heat Demand, Heat Pump with COP3 and Hot Water models Tank, Heat Pump Electricity"
     HT22_Big_Multifamily_House_no_heating_cooling = (
         "HT22 Big Multifamily House (no heating/cooling)"
     )

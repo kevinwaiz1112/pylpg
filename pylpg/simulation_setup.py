@@ -28,26 +28,33 @@ def update_status_file(status_file, building_id):
     with open(status_file, 'a') as file:
         file.write(f"{building_id}\n")
 
-def simulate_building(building_id, households, startdate, enddate, output_folder, calc_folder, status_file, resolution, city, weather_path):
+def simulate_building(building_id, households, startdate, enddate, output_folder, calc_folder, status_file, resolution, city, weather_path, house_class):
     all_households_unsorted = list(households.values())
-    all_households = sorted(all_households_unsorted, key=lambda x: x.HouseholdNameSpec.HouseholdReference)
-
+    # all_households = sorted(all_households_unsorted, key=lambda x: x.HouseholdNameSpec.HouseholdReference)
+    all_households = sorted(
+        all_households_unsorted,
+        key=lambda x: x.HouseholdNameSpec.HouseholdReference
+        if x.HouseholdNameSpec.HouseholdReference is not None else ""
+    )
     startdate = startdate.strftime("%m.%d.%Y")
     enddate = enddate.strftime("%m.%d.%Y")
     # Aktualisiere den Ausgabeordner für dieses Gebäude
     output_folder = os.path.join(output_folder, f"Results_{building_id}")
     # Directory in welchem die Berechnung durchgeführt wird; Wird nach Ende der Sim gelöscht
+    house_category = HouseTypes.HT22_Big_Multifamily_House_no_heating_cooling
+    if house_class == "SFH":
+        house_category = HouseTypes.HT20_Single_Family_House_no_heating_cooling
 
     # Führen Sie lpg_execution.execute_lpg_with_many_householdata für das aktuelle Gebäude durch
     df = lpg_execution.execute_lpg_with_many_householdata(
         year=2020,
         householddata=all_households,
-        housetype=HouseTypes.HT22_Big_Multifamily_House_no_heating_cooling,
+        housetype=house_category,
         startdate=startdate,
         enddate=enddate,
         simulate_transportation=False,
         resolution=resolution,
-        random_seed=2,
+        random_seed=-1,
         building_id=building_id,
         output_folder=output_folder,
         calc_folder=calc_folder,
@@ -84,6 +91,7 @@ def simulate_building(building_id, households, startdate, enddate, output_folder
 
 def rename_files(output_directory, household_ids):
     directory = os.path.join(output_directory, f"Results")
+    print(f"Checking directory: {directory}")
     for filename in os.listdir(directory):
         if filename.startswith("SumProfiles_3600s.HH") and filename.endswith(".csv"):
             # Extrahiere die Nummer aus dem Dateinamen
