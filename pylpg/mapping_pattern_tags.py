@@ -7,7 +7,10 @@ from pylpg.lpgdata import *
 from pylpg.lpgpythonbindings import *
 from collections import defaultdict
 import random
-
+import shutil
+import pathlib
+import numpy as np
+import matplotlib.pyplot as plt
 
 """""
 Skript zur Filterung und Zuweisung der Daten aus Synthesizer an den LPG:
@@ -546,3 +549,155 @@ def add_lagging_features(df, columns, lags):
             df[f'{col}_lag_{lag}'] = df[col].shift(lag)
     df = df.fillna(0)  # Replace NaN values created by lagging with 0
     return df
+
+
+def get_best_match_day(occ_actual, bal_array):
+    """Vergleicht Ist-Anwesenheit (24×60 Min, 0/1) mit LPG-BAL-Array (8760×Minuten)."""
+    # reshape in (365, 1440)
+    bal_days = bal_array.reshape(365, 1440)
+    occ_vec   = occ_actual.flatten()          # 1440
+    # MSE pro Tag
+    mse = ((bal_days - occ_vec)**2).mean(axis=1)
+    return int(mse.argmin())                  # Index 0-364
+
+
+def load_template_day_profile(template_dir, day_idx, column):
+    """Liest genau die 24 Zeilen für `day_idx` aus der CSV und gibt numpy-Array zurück."""
+    path = pathlib.Path(template_dir) / f'SumProfiles_3600s.House.{column}.csv'
+    df = pd.read_csv(path, sep=';')
+
+    # Spaltenname wählen
+    if 'Sum [kWh]' in df.columns:
+        value_col = 'Sum [kWh]'
+    elif 'Sum [L]' in df.columns:
+        value_col = 'Sum [L]'
+    else:
+        raise ValueError(f"Keine Summenspalte in {path} gefunden")
+
+    start = day_idx * 24
+    end = start + 24
+    return df[value_col].iloc[start:end].to_numpy()
+
+def plot_best_match_day(occ_actual: np.ndarray,
+                        bal_array:  np.ndarray,
+                        day_idx:    int,
+                        title: str = "Best-Match-Vergleich") -> None:
+    """
+    Zeigt 2 Linienplots (Minutenwerte) + ggf. Stundenmittel.
+    """
+    # Daten vorbereiten
+    occ_vec  = occ_actual.flatten()                          # 1 440
+    lpg_day  = bal_array.reshape(365, 1440)[day_idx, :]      # 1 440
+
+    t = np.arange(1440) / 60.0  # Stunden 0–24 als float
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(t, occ_vec,  label="Ist-Anwesenheit HH")
+    plt.plot(t, lpg_day,  label=f"LPG-Tag {day_idx:03d}", alpha=.75)
+
+    # Optional: Stundenmittel drüberlegen
+    for data, style in [(occ_vec, 'k--'), (lpg_day, 'k:')]:
+        hourly = data.reshape(24, 60).mean(axis=1)
+        plt.step(np.arange(25), np.r_[hourly, hourly[-1]], style, where='post', lw=.8)
+
+    plt.xlim(0, 24)
+    plt.xlabel("Uhrzeit [h]")
+    plt.ylabel("Personen im Gebäude")
+    plt.title(title)
+    plt.grid(True, which='both', ls=':')
+    plt.legend(loc="upper right")
+    plt.tight_layout()
+    plt.show()
+
+
+def postprocess_by_mapping(result_root: pathlib.Path, mapping_df: pd.DataFrame):
+    """
+    Aggregiert Simulationsergebnisse anhand der Mapping-Tabelle.
+
+    ▸ Sucht in  result_root/<gml_id>/
+    ▸ Bildet für jede Mapping-ID einen Ordner  result_root/<mapping_id>/  mit
+        - <mapping_id>_Filtered_Results.csv|json
+        - <mapping_id>_Overall.json
+      .mat-Dateien werden einfach kopiert. Gehört eine GML-ID zu mehreren
+      Mapping-IDs, erhalten die kopierten .mat-Dateien das Suffix
+              _<ID1>_<ID2>_…  (sortiert, uniq).
+    """
+
+    # ------------ Vorverknüpfung: welche GML-ID zu welchen Mapping-IDs? -----
+    gml_to_ids = (
+        mapping_df.groupby("gml_id")["id"]
+        .apply(lambda s: sorted(set(s.astype(str))))
+        .to_dict()
+    )
+
+    # ------------ Hauptschleife über Mapping-IDs ----------------------------
+    for mid, grp in mapping_df.groupby("id"):
+        gml_ids = grp["gml_id"].unique().tolist()
+
+        # ---------- Quelldateien einsammeln ---------------------------------
+        csv_list, json_list, overall_list, mat_list = [], [], [], []
+        for gid in gml_ids:
+            gdir = result_root / gid
+            if not gdir.exists():
+                continue
+
+            csv_list.append(gdir / f"{gid}_Filtered_Results.csv")
+            json_list.append(gdir / f"{gid}_Filtered_Results.json")
+            overall_list.append(gdir / f"{gid}_Overall.json")
+            mat_list.extend(gdir.glob("*.mat"))
+
+        if not csv_list:               #   nichts da –  weiter
+            continue
+
+        # ---------- Zielordner ---------------------------------------------
+        tdir = result_root / str(mid)
+        tdir.mkdir(parents=True, exist_ok=True)
+
+        # ---------- 1) Filtered-CSV -----------------------------------------
+        agg_csv = None
+        for path in csv_list:
+            if not path.exists():
+                continue
+            df = pd.read_csv(path)
+            agg_csv = df if agg_csv is None else agg_csv.add(df, fill_value=0)
+        if agg_csv is not None:
+            agg_csv.to_csv(tdir / f"{mid}_Filtered_Results.csv", index=False)
+
+        # ---------- 2) Filtered-JSON ----------------------------------------
+        agg_json = {}
+        for path in json_list:
+            if not path.exists():
+                continue
+            with open(path, encoding="utf-8") as fp:
+                data = json.load(fp)
+            for k, v in data.items():
+                agg_json[k] = (
+                    np.array(agg_json.get(k, 0), dtype=float) + np.array(v, dtype=float)
+                )
+        if agg_json:
+            for k in agg_json:
+                agg_json[k] = agg_json[k].tolist()
+            with open(tdir / f"{mid}_Filtered_Results.json", "w", encoding="utf-8") as fp:
+                json.dump(agg_json, fp, ensure_ascii=False, indent=4)
+
+        # ---------- 3) Overall-JSON -----------------------------------------
+        overall_sum = {}
+        for path in overall_list:
+            if not path.exists():
+                continue
+            with open(path, encoding="utf-8") as fp:
+                data = json.load(fp)
+            val_dict = next(iter(data.values()))
+            for k, v in val_dict.items():
+                overall_sum[k] = overall_sum.get(k, 0) + v
+        if overall_sum:
+            with open(tdir / f"{mid}_Overall.json", "w", encoding="utf-8") as fp:
+                json.dump({str(mid): overall_sum}, fp, ensure_ascii=False, indent=4)
+
+        # ---------- 4) .mat-Dateien kopieren --------------------------------
+        for mat in mat_list:
+            ids_suffix = "_".join(gml_to_ids.get(mat.parent.name, []))
+            dst_name = f"{mat.stem}_{ids_suffix}.mat" if ids_suffix else mat.name
+            shutil.copy(mat, tdir / dst_name)
+
+
