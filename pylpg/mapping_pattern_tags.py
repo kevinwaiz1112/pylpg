@@ -610,94 +610,132 @@ def plot_best_match_day(occ_actual: np.ndarray,
     plt.show()
 
 
-def postprocess_by_mapping(result_root: pathlib.Path, mapping_df: pd.DataFrame):
+def postprocess_by_mapping(result_root: pathlib.Path, mapping_df: pd.DataFrame) -> pathlib.Path:
     """
-    Aggregiert Simulationsergebnisse anhand der Mapping-Tabelle.
+    ▸ Legt einen neuen Unterordner  <result_root>/Results_zip/  an und schreibt dort
+      pro Ergebnis-Gruppe drei aggregierte Dateien:
+          - <folder>_Filtered_Results.csv
+          - <folder>_Filtered_Results.json
+          - <folder>_Overall.json
 
-    ▸ Sucht in  result_root/<gml_id>/
-    ▸ Bildet für jede Mapping-ID einen Ordner  result_root/<mapping_id>/  mit
-        - <mapping_id>_Filtered_Results.csv|json
-        - <mapping_id>_Overall.json
-      .mat-Dateien werden einfach kopiert. Gehört eine GML-ID zu mehreren
-      Mapping-IDs, erhalten die kopierten .mat-Dateien das Suffix
-              _<ID1>_<ID2>_…  (sortiert, uniq).
+    ▸ Der Ordner­name (<folder>) wird so gewählt:
+        * 1 GML-ID → 1 ID  →  "<ID>"
+        * 1 GML-ID → n IDs →  "ID1_ID2_…_IDn"   (IDs sortiert, uniq)
+
+      Der „umgekehrte“ Fall (mehrere GML-IDs je ID) bleibt unverändert:
+      alle GML-IDs, die zu derselben ID gehören, werden wie bisher zusammengefasst.
+
+    ▸ .mat-Dateien und sämtliche sonstigen Dateien werden **nicht** kopiert.
+
+    ▸ Am Ende wird ausgegeben, wie viele GML-IDs bzw. IDs aus der Mapping-Tabelle in
+      den Ergebnissen fehlen.
+
+    Rückgabewert
+    -------------
+    pathlib.Path – Pfad zum neuen Wurzelordner „Results_zip“.
     """
 
-    # ------------ Vorverknüpfung: welche GML-ID zu welchen Mapping-IDs? -----
-    gml_to_ids = (
+    # ------------------------------------------------------------
+    # 1) Vorarbeit: Mapping-Hilfsstrukturen
+    # ------------------------------------------------------------
+    # GML-ID → Liste aller zugehörigen IDs
+    gml_to_ids: dict[str, list[str]] = (
         mapping_df.groupby("gml_id")["id"]
         .apply(lambda s: sorted(set(s.astype(str))))
         .to_dict()
     )
 
-    # ------------ Hauptschleife über Mapping-IDs ----------------------------
-    for mid, grp in mapping_df.groupby("id"):
-        gml_ids = grp["gml_id"].unique().tolist()
+    # Zielordner → Liste der GML-IDs, die hinein­gehören
+    folder_to_gmls: dict[tuple[str, ...], list[str]] = defaultdict(list)
+    for gml_id, ids in gml_to_ids.items():
+        key = tuple(ids)                  # *sortiert* (s. oben)
+        folder_to_gmls[key].append(gml_id)
 
-        # ---------- Quelldateien einsammeln ---------------------------------
-        csv_list, json_list, overall_list, mat_list = [], [], [], []
+    # ------------------------------------------------------------
+    # 2) Zielwurzel <result_root>/Results_zip/ anlegen
+    # ------------------------------------------------------------
+    dest_root = result_root / "Results_zip"
+    dest_root.mkdir(parents=True, exist_ok=True)
+
+    # ------------------------------------------------------------
+    # 3) Hauptschleife über Zielordner
+    # ------------------------------------------------------------
+    gmls_with_results: set[str] = set()
+    ids_with_results: set[str] = set()
+
+    for id_tuple, gml_ids in folder_to_gmls.items():
+        folder_name = "_".join(id_tuple)
+        tdir = dest_root / folder_name
+        tdir.mkdir(exist_ok=True)
+
+        # ------------------------------------ Dateien sammeln
+        csv_paths, json_paths, overall_paths = [], [], []
         for gid in gml_ids:
             gdir = result_root / gid
-            if not gdir.exists():
+            if not gdir.exists():               # keine Ergebnisse für diese GML-ID
                 continue
 
-            csv_list.append(gdir / f"{gid}_Filtered_Results.csv")
-            json_list.append(gdir / f"{gid}_Filtered_Results.json")
-            overall_list.append(gdir / f"{gid}_Overall.json")
-            mat_list.extend(gdir.glob("*.mat"))
+            csv_paths.append(gdir / f"{gid}_Filtered_Results.csv")
+            json_paths.append(gdir / f"{gid}_Filtered_Results.json")
+            overall_paths.append(gdir / f"{gid}_Overall.json")
 
-        if not csv_list:               #   nichts da –  weiter
-            continue
+            gmls_with_results.add(gid)
+            ids_with_results.update(id_tuple)
 
-        # ---------- Zielordner ---------------------------------------------
-        tdir = result_root / str(mid)
-        tdir.mkdir(parents=True, exist_ok=True)
+        if not csv_paths and not json_paths and not overall_paths:
+            continue        # nichts gefunden → Zielordner leer, überspringen
 
-        # ---------- 1) Filtered-CSV -----------------------------------------
+        # ------------------------------------ 1) Filtered CSV
         agg_csv = None
-        for path in csv_list:
-            if not path.exists():
+        for p in csv_paths:
+            if not p.exists():
                 continue
-            df = pd.read_csv(path)
+            df = pd.read_csv(p)
             agg_csv = df if agg_csv is None else agg_csv.add(df, fill_value=0)
         if agg_csv is not None:
-            agg_csv.to_csv(tdir / f"{mid}_Filtered_Results.csv", index=False)
+            agg_csv.to_csv(tdir / f"{folder_name}_Filtered_Results.csv", index=False)
 
-        # ---------- 2) Filtered-JSON ----------------------------------------
-        agg_json = {}
-        for path in json_list:
-            if not path.exists():
+        # ------------------------------------ 2) Filtered JSON
+        agg_json: dict[str, np.ndarray] = {}
+        for p in json_paths:
+            if not p.exists():
                 continue
-            with open(path, encoding="utf-8") as fp:
+            with open(p, encoding="utf-8") as fp:
                 data = json.load(fp)
             for k, v in data.items():
-                agg_json[k] = (
-                    np.array(agg_json.get(k, 0), dtype=float) + np.array(v, dtype=float)
-                )
+                agg_json[k] = np.array(agg_json.get(k, 0), dtype=float) + np.array(v, dtype=float)
         if agg_json:
-            for k in agg_json:
-                agg_json[k] = agg_json[k].tolist()
-            with open(tdir / f"{mid}_Filtered_Results.json", "w", encoding="utf-8") as fp:
-                json.dump(agg_json, fp, ensure_ascii=False, indent=4)
+            with open(tdir / f"{folder_name}_Filtered_Results.json", "w", encoding="utf-8") as fp:
+                json.dump({k: v.tolist() for k, v in agg_json.items()}, fp, ensure_ascii=False, indent=4)
 
-        # ---------- 3) Overall-JSON -----------------------------------------
-        overall_sum = {}
-        for path in overall_list:
-            if not path.exists():
+        # ------------------------------------ 3) Overall JSON
+        overall_sum: dict[str, float] = {}
+        for p in overall_paths:
+            if not p.exists():
                 continue
-            with open(path, encoding="utf-8") as fp:
+            with open(p, encoding="utf-8") as fp:
                 data = json.load(fp)
-            val_dict = next(iter(data.values()))
-            for k, v in val_dict.items():
+            values = next(iter(data.values()))
+            for k, v in values.items():
                 overall_sum[k] = overall_sum.get(k, 0) + v
         if overall_sum:
-            with open(tdir / f"{mid}_Overall.json", "w", encoding="utf-8") as fp:
-                json.dump({str(mid): overall_sum}, fp, ensure_ascii=False, indent=4)
+            with open(tdir / f"{folder_name}_Overall.json", "w", encoding="utf-8") as fp:
+                json.dump({folder_name: overall_sum}, fp, ensure_ascii=False, indent=4)
 
-        # ---------- 4) .mat-Dateien kopieren --------------------------------
-        for mat in mat_list:
-            ids_suffix = "_".join(gml_to_ids.get(mat.parent.name, []))
-            dst_name = f"{mat.stem}_{ids_suffix}.mat" if ids_suffix else mat.name
-            shutil.copy(mat, tdir / dst_name)
+    # ------------------------------------------------------------
+    # 4) Fehlende IDs / GML-IDs ausgeben
+    # ------------------------------------------------------------
+    all_mapping_gmls = set(mapping_df["gml_id"])
+    all_mapping_ids = set(mapping_df["id"].astype(str))
+
+    missing_gmls = all_mapping_gmls - gmls_with_results
+    missing_ids = all_mapping_ids - ids_with_results
+
+    print(
+        f"Fehlende GML-IDs: {len(missing_gmls)} von {len(all_mapping_gmls)} | "
+        f"Fehlende IDs: {len(missing_ids)} von {len(all_mapping_ids)}"
+    )
+
+    return dest_root
 
 
