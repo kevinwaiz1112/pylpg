@@ -105,7 +105,19 @@ def read_csv_and_assign_living_pattern_tags(person_presence_data_json):
         households = feature['properties']['household']
         for household in households:
             haushalt_id = household['household_id']
-            for person in household['persons']:
+            persons = household['persons']
+
+            # Dedupliziere doppelte Personen innerhalb des Haushalts anhand 'person_id'
+            seen_ids = set()
+            unique_persons = []
+            for person in persons:
+                pid = person.get('person_id')
+                if pid in seen_ids:
+                    continue
+                seen_ids.add(pid)
+                unique_persons.append(person)
+
+            for person in unique_persons:
                 person_id = person['person_id']
                 alter = person['age']
                 geschlecht = person['sex']
